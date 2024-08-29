@@ -12,7 +12,7 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-var UrlStorage = struct {
+var URLStorage = struct {
 	sync.RWMutex
 	m map[string]string
 }{m: make(map[string]string)}
@@ -50,9 +50,9 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 
 		newLink := generateShortString(bodyLink)
 
-		UrlStorage.Lock()
-		UrlStorage.m[newLink] = bodyLink
-		UrlStorage.Unlock()
+		URLStorage.Lock()
+		URLStorage.m[newLink] = bodyLink
+		URLStorage.Unlock()
 
 		fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
 		w.Header().Set("content-type", "text/plain")
@@ -62,9 +62,9 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodGet {
 		url := strings.TrimPrefix(r.URL.Path, "/")
 
-		UrlStorage.RLock()
-		originalUrl, ok := UrlStorage.m[url]
-		UrlStorage.RUnlock()
+		URLStorage.RLock()
+		originalUrl, ok := URLStorage.m[url]
+		URLStorage.RUnlock()
 
 		fmt.Println("GET: Requested key:", url)
 		if ok {
