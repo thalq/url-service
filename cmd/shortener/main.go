@@ -57,7 +57,9 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
 		w.Header().Set("content-type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("Short URL: " + newLink))
+		if _, err := w.Write([]byte("Short URL: " + newLink)); err != nil {
+			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
+		}
 		return
 	} else if r.Method == http.MethodGet {
 		url := strings.TrimPrefix(r.URL.Path, "/")
