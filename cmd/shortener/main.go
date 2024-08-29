@@ -63,13 +63,13 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 		url := strings.TrimPrefix(r.URL.Path, "/")
 
 		URLStorage.RLock()
-		originalUrl, ok := URLStorage.m[url]
+		originalURL, ok := URLStorage.m[url]
 		URLStorage.RUnlock()
 
 		fmt.Println("GET: Requested key:", url)
 		if ok {
-			fmt.Println("GET: Found URL:", originalUrl)
-			w.Header().Set("Location", originalUrl)
+			fmt.Println("GET: Found URL:", originalURL)
+			w.Header().Set("Location", originalURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			return
 		} else {
