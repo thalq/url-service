@@ -23,7 +23,6 @@ func generateShortString(s string) string {
 	h.Write([]byte(s))
 	hashBytes := h.Sum(nil)
 
-	// 2. Преобразовываем хэш в строку Hex
 	hexString := hex.EncodeToString(hashBytes)
 
 	// 3. Используем Base58 для кодирования Hex-строки
@@ -37,6 +36,7 @@ func generateShortString(s string) string {
 }
 
 func mainPage(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Request URL:", r.URL.Path)
 	if r.Method == http.MethodPost {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -44,14 +44,17 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer r.Body.Close()
-		bodyLink := string(body)
+		bodyLink := strings.TrimSpace(string(body))
+
+		bodyLink = strings.Trim(bodyLink, `"'`)
+
 		newLink := generateShortString(bodyLink)
 
 		UrlStorage.Lock()
 		UrlStorage.m[newLink] = bodyLink
 		UrlStorage.Unlock()
 
-		fmt.Println(UrlStorage.m)
+		fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
 		w.Header().Set("content-type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte("Short URL: " + newLink))
@@ -63,14 +66,16 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 		originalUrl, ok := UrlStorage.m[url]
 		UrlStorage.RUnlock()
 
-		fmt.Println("originalUrl", originalUrl)
+		fmt.Println("GET: Requested key:", url)
 		if ok {
 			fmt.Println("GET: Found URL:", originalUrl)
 			w.Header().Set("Location", originalUrl)
 			w.WriteHeader(http.StatusTemporaryRedirect)
+			return
 		} else {
 			fmt.Println("GET: Key not found:", url)
 			http.Error(w, "URL не найден", http.StatusNotFound)
+			return
 		}
 	} else {
 		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
@@ -79,10 +84,10 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, mainPage)
+	mux.HandleFunc("/", mainPage)
 
-	err := http.ListenAndServe(`:8080`, mux)
-	if err != nil {
+	fmt.Println("Starting server on :8080")
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		panic(err)
 	}
 }
