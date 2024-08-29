@@ -2,14 +2,13 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
-
-	"github.com/mr-tron/base58"
 )
 
 var URLStorage = struct {
@@ -26,7 +25,7 @@ func generateShortString(s string) string {
 	hexString := hex.EncodeToString(hashBytes)
 
 	// 3. Используем Base58 для кодирования Hex-строки
-	encodedString := base58.Encode([]byte(hexString))
+	encodedString := base64.StdEncoding.EncodeToString([]byte(hexString))
 
 	// 4. Сокращаем до длины 8 символов (или другой необходимой длины)
 	if len(encodedString) > 8 {
