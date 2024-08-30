@@ -17,17 +17,14 @@ var URLStorage = struct {
 }{m: make(map[string]string)}
 
 func generateShortString(s string) string {
-	// 1. Создаем хэш SHA-256
 	h := sha256.New()
 	h.Write([]byte(s))
 	hashBytes := h.Sum(nil)
 
 	hexString := hex.EncodeToString(hashBytes)
 
-	// 3. Используем Base58 для кодирования Hex-строки
 	encodedString := base64.StdEncoding.EncodeToString([]byte(hexString))
 
-	// 4. Сокращаем до длины 8 символов (или другой необходимой длины)
 	if len(encodedString) > 8 {
 		return encodedString[:8]
 	}
@@ -56,7 +53,7 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
 		w.Header().Set("content-type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
-		if _, err := w.Write([]byte("Short URL: " + newLink)); err != nil {
+		if _, err := w.Write([]byte(newLink)); err != nil {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 		}
 		return
