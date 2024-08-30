@@ -51,7 +51,15 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
 		w.Header().Set("content-type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
-		if _, err := w.Write([]byte(newLink)); err != nil {
+		fullURL := r.URL.Scheme + "://" + r.Host + r.RequestURI
+		if r.URL.Scheme == "" {
+			if r.TLS != nil {
+				fullURL = "https://" + r.Host + r.RequestURI
+			} else {
+				fullURL = "http://" + r.Host + r.RequestURI
+			}
+		}
+		if _, err := w.Write([]byte(fullURL + newLink)); err != nil {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 		}
 		return
@@ -65,9 +73,6 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("GET: Requested key:", url)
 		if ok {
 			fmt.Println("GET: Found URL:", originalURL)
-			if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
-				originalURL = "http://" + originalURL // Или используйте "https://" если требуется
-			}
 			w.Header().Set("Location", originalURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			fmt.Println("Temporary Redirect sent for URL:", originalURL)
