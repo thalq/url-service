@@ -40,9 +40,7 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer r.Body.Close()
-		bodyLink := strings.TrimSpace(string(body))
-
-		bodyLink = strings.Trim(bodyLink, `"'`)
+		bodyLink := string(body)
 
 		newLink := generateShortString(bodyLink)
 
