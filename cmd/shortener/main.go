@@ -65,8 +65,12 @@ func mainPage(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("GET: Requested key:", url)
 		if ok {
 			fmt.Println("GET: Found URL:", originalURL)
+			if !strings.HasPrefix(originalURL, "http://") && !strings.HasPrefix(originalURL, "https://") {
+				originalURL = "http://" + originalURL // Или используйте "https://" если требуется
+			}
 			w.Header().Set("Location", originalURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
+			fmt.Println("Temporary Redirect sent for URL:", originalURL)
 			return
 		} else {
 			fmt.Println("GET: Key not found:", url)
