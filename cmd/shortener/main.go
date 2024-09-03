@@ -5,8 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
+
+	"github.com/go-chi/chi/v5"
 )
 
 var URLStorage = struct {
@@ -29,24 +32,13 @@ func generateShortString(s string) string {
 	return encodedString
 }
 
-func mainPage(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Request URL:", r.URL.Path)
-	if r.Method == http.MethodPost {
-		PostHandler(w, r)
-		return
-	} else if r.Method == http.MethodGet {
-		GetHandler(w, r)
-	} else {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-	}
-}
-
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", mainPage)
+	r := chi.NewRouter()
 
+	r.Route("/", func(r chi.Router) {
+		r.Get("/", GetHandler)
+		r.Post("/", PostHandler)
+	})
 	fmt.Println("Starting server on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
-		panic(err)
-	}
+	log.Fatal(http.ListenAndServe(":8080", r))
 }
