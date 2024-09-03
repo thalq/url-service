@@ -14,6 +14,8 @@ func TestHandlers(t *testing.T) {
 		name         string
 		method       string
 		body         string
+		shortURL     string
+		insertURL    string
 		header       string
 		contentType  string
 		expectedCode int
@@ -29,19 +31,25 @@ func TestHandlers(t *testing.T) {
 		{
 			name:         "GetHandler",
 			method:       http.MethodGet,
-			body:         "https://google.com",
+			insertURL:    "https://test1.com",
 			expectedCode: http.StatusTemporaryRedirect,
 		},
 		{
-			name:         "GetHandlerWrongURL",
-			method:       http.MethodGet,
-			body:         "google.com",
+			name:         "Not-valid URL",
+			method:       http.MethodPost,
+			body:         "notvalidurl",
 			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Non-Existent URL",
+			method:       http.MethodGet,
+			shortURL:     "nonexist",
+			expectedCode: http.StatusNotFound,
 		},
 		{
 			name:         "GetHandlerMethodNotAllowed",
 			method:       http.MethodHead,
-			body:         "https://google.com",
+			body:         "https://test.com",
 			expectedCode: http.StatusMethodNotAllowed,
 		},
 	}
@@ -49,21 +57,31 @@ func TestHandlers(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.method == http.MethodPost {
-				req := httptest.NewRequest(tc.method, "/", strings.NewReader(tc.body))
+				req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.body))
 				w := httptest.NewRecorder()
 				PostHandler(w, req)
 				assert.Equal(t, tc.expectedCode, w.Code)
-				assert.Contains(t, w.Body.String(), "http://")
-				assert.Equal(t, tc.contentType, w.Header().Get(tc.header))
+				if tc.expectedCode == http.StatusCreated {
+					assert.Contains(t, w.Body.String(), "http://")
+					assert.Equal(t, tc.contentType, w.Header().Get(tc.header))
+				}
 			} else if tc.method == http.MethodGet {
-				shortURL := generateShortString(tc.body)
-				URLStorage.Lock()
-				URLStorage.m[shortURL] = tc.body
-				URLStorage.Unlock()
-				req := httptest.NewRequest(tc.method, "/"+generateShortString(tc.body), nil)
-				w := httptest.NewRecorder()
-				GetHandler(w, req)
-				assert.Equal(t, tc.expectedCode, w.Code)
+				if tc.shortURL != "" {
+					shortURL := generateShortString(tc.insertURL)
+					URLStorage.Lock()
+					URLStorage.m[shortURL] = tc.insertURL
+					URLStorage.Unlock()
+					tc.shortURL = shortURL
+					req := httptest.NewRequest(http.MethodGet, "/"+tc.shortURL, nil)
+					w := httptest.NewRecorder()
+					GetHandler(w, req)
+					assert.Equal(t, tc.expectedCode, w.Code)
+					if tc.expectedCode == http.StatusTemporaryRedirect {
+						assert.Equal(t, tc.insertURL, w.Header().Get("Location"))
+					} else if tc.expectedCode == http.StatusNotFound {
+						assert.Contains(t, w.Body.String(), "URL не найден")
+					}
+				}
 			}
 		})
 	}

@@ -16,7 +16,11 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	bodyLink := string(body)
-
+	if_valid_link := ifValidURL(bodyLink)
+	if !if_valid_link {
+		http.Error(w, "Невалидный URL", http.StatusBadRequest)
+		return
+	}
 	newLink := generateShortString(bodyLink)
 
 	URLStorage.Lock()
@@ -42,14 +46,10 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 func GetHandler(w http.ResponseWriter, r *http.Request) {
 
 	url := chi.URLParam(r, "url")
+	fmt.Println("GET: Requested key:", url)
 	URLStorage.RLock()
 	originalURL, ok := URLStorage.m[url]
 	URLStorage.RUnlock()
-	err := ifValidURL(originalURL)
-	if !err {
-		http.Error(w, "Невалидный URL", http.StatusBadRequest)
-		return
-	}
 	fmt.Println("GET: Requested key:", url)
 	if ok {
 		fmt.Println("GET: Found URL:", originalURL)
