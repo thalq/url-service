@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func PostHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,11 +41,10 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
 
-	url := strings.TrimPrefix(r.URL.Path, "/")
+	url := chi.URLParam(r, "url")
 	URLStorage.RLock()
 	originalURL, ok := URLStorage.m[url]
 	URLStorage.RUnlock()
-
 	err := ifValidURL(originalURL)
 	if !err {
 		http.Error(w, "Невалидный URL", http.StatusBadRequest)
