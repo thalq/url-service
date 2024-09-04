@@ -16,8 +16,8 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	bodyLink := string(body)
-	if_valid_link := ifValidURL(bodyLink)
-	if !if_valid_link {
+	ifValidLink := ifValidURL(bodyLink)
+	if !ifValidLink {
 		http.Error(w, "Невалидный URL", http.StatusBadRequest)
 		return
 	}
