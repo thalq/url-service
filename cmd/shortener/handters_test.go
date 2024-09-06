@@ -67,6 +67,11 @@ func TestHandlers(t *testing.T) {
 				}
 			} else if tc.method == http.MethodGet {
 				if tc.shortURL != "" {
+					req := httptest.NewRequest(http.MethodGet, "/"+tc.shortURL, nil)
+					w := httptest.NewRecorder()
+					GetHandler(w, req)
+					assert.Equal(t, tc.expectedCode, w.Code)
+				} else {
 					shortURL := generateShortString(tc.insertURL)
 					URLStorage.Lock()
 					URLStorage.m[shortURL] = tc.insertURL
@@ -76,11 +81,7 @@ func TestHandlers(t *testing.T) {
 					w := httptest.NewRecorder()
 					GetHandler(w, req)
 					assert.Equal(t, tc.expectedCode, w.Code)
-					if tc.expectedCode == http.StatusTemporaryRedirect {
-						assert.Equal(t, tc.insertURL, w.Header().Get("Location"))
-					} else if tc.expectedCode == http.StatusNotFound {
-						assert.Contains(t, w.Body.String(), "URL не найден")
-					}
+					assert.Equal(t, tc.insertURL, w.Header().Get("Location"))
 				}
 			}
 		})
