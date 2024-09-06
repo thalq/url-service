@@ -12,6 +12,10 @@ type NetAddress struct {
 }
 
 func (a NetAddress) String() string {
+	if a.Host == "" || a.Port == 0 {
+		a.Host = "localhost"
+		a.Port = 8080
+	}
 	return a.Host + ":" + strconv.Itoa(a.Port)
 }
 
