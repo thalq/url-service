@@ -37,6 +37,10 @@ func run() error {
 		r.Post("/", PostHandler)
 		r.Get("/*", GetHandler)
 	})
-	log.Fatal(http.ListenAndServe(net.String(), r))
+	address := net.String()
+	if address == "" {
+		address = ":8080"
+	}
+	log.Fatal(http.ListenAndServe(address, r))
 	return nil
 }

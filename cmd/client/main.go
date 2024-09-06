@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	endpoint := "http://localhost:8888/"
+	endpoint := "http://localhost:8080/"
 	data := url.Values{}
 	fmt.Println("Введите длинный URL")
 	reader := bufio.NewReader(os.Stdin)
