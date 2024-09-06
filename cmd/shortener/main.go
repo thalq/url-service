@@ -10,17 +10,6 @@ import (
 	"github.com/thalq/url-service/cmd/config"
 )
 
-// func main() {
-// 	config.ParseFlags()
-// 	r := chi.NewRouter()
-
-//		r.Route("/", func(r chi.Router) {
-//			r.Post("/", PostHandler)
-//			r.Get("/{url}", GetHandler)
-//		})
-//		fmt.Println("Starting server on :8080")
-//		log.Fatal(http.ListenAndServe(":8080", r))
-//	}
 func main() {
 	if err := run(); err != nil {
 		panic(err)
@@ -31,12 +20,17 @@ func run() error {
 	net := new(config.NetAddress)
 	flag.Var(net, "a", "address and port to run server")
 	flag.Parse()
-	fmt.Println("Running server on", net.String())
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", PostHandler)
 		r.Get("/*", GetHandler)
 	})
-	log.Fatal(http.ListenAndServe(net.String(), r))
+	cfg := config.ParseConfig()
+	url := net.String()
+	if url == "" {
+		url = cfg.Address
+	}
+	fmt.Println("Running server on", url)
+	log.Fatal(http.ListenAndServe(url, r))
 	return nil
 }
