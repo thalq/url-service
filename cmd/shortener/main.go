@@ -19,6 +19,7 @@ func main() {
 func run() error {
 	net := new(config.NetAddress)
 	flag.Var(net, "a", "address and port to run server")
+	flag.Var(net, "b", "address and port to run server")
 	flag.Parse()
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
