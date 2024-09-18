@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"github.com/thalq/url-service/cmd/config"
 )
 
 var URLStorage = struct {
@@ -30,38 +32,32 @@ func generateShortString(s string) string {
 	}
 	return encodedString
 }
-func PostHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Не удалось прочитать тело запроса", http.StatusInternalServerError)
-		return
-	}
-	defer r.Body.Close()
-	bodyLink := string(body)
-	ifValidLink := ifValidURL(bodyLink)
-	if !ifValidLink {
-		http.Error(w, "Невалидный URL", http.StatusBadRequest)
-		return
-	}
-	newLink := generateShortString(bodyLink)
-
-	URLStorage.Lock()
-	URLStorage.m[newLink] = bodyLink
-	URLStorage.Unlock()
-
-	fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
-	w.Header().Set("content-type", "text/plain")
-	w.WriteHeader(http.StatusCreated)
-	fullURL := r.URL.Scheme + "://" + r.Host + r.RequestURI
-	if r.URL.Scheme == "" {
-		if r.TLS != nil {
-			fullURL = "https://" + r.Host + r.RequestURI
-		} else {
-			fullURL = "http://" + r.Host + r.RequestURI
+func PostHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Не удалось прочитать тело запроса", http.StatusInternalServerError)
+			return
 		}
-	}
-	if _, err := w.Write([]byte(fullURL + newLink)); err != nil {
-		http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
+		defer r.Body.Close()
+		bodyLink := string(body)
+		ifValidLink := ifValidURL(bodyLink)
+		if !ifValidLink {
+			http.Error(w, "Невалидный URL", http.StatusBadRequest)
+			return
+		}
+		newLink := generateShortString(bodyLink)
+
+		URLStorage.Lock()
+		URLStorage.m[newLink] = bodyLink
+		URLStorage.Unlock()
+
+		fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
+		w.Header().Set("content-type", "text/plain")
+		w.WriteHeader(http.StatusCreated)
+		if _, err := w.Write([]byte(cfg.BaseURL + newLink)); err != nil {
+			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
+		}
 	}
 }
 

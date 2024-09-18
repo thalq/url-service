@@ -2,7 +2,9 @@ package config
 
 import (
 	"errors"
+	"flag"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 
@@ -41,9 +43,20 @@ func (a *NetAddress) Set(s string) error {
 }
 
 func ParseConfig() *Config {
+	address := flag.String("a", "", "address to run server")
+	baseUrl := flag.String("b", "", "port to run server")
+	flag.Parse()
+	AddrA := *address
+	AddrB := *baseUrl
 	cfg := &Config{
-		Address: "localhost:8080",
-		BaseURL: "http://localhost:8080",
+		Address: os.Getenv("SERVER_ADDRESS"),
+		BaseURL: os.Getenv("BASE_URL"),
+	}
+	if cfg.Address == "" {
+		cfg.Address = AddrA
+	}
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = AddrB
 	}
 	if err := env.Parse(cfg); err != nil {
 		log.Fatal(err)
