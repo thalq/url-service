@@ -44,10 +44,10 @@ func (a *NetAddress) Set(s string) error {
 
 func ParseConfig() *Config {
 	address := flag.String("a", "", "address to run server")
-	baseUrl := flag.String("b", "", "port to run server")
+	BaseURL := flag.String("b", "", "port to run server")
 	flag.Parse()
 	AddrA := *address
-	AddrB := *baseUrl
+	AddrB := *BaseURL
 	cfg := &Config{
 		Address: os.Getenv("SERVER_ADDRESS"),
 		BaseURL: os.Getenv("BASE_URL"),
@@ -60,6 +60,12 @@ func ParseConfig() *Config {
 	}
 	if err := env.Parse(cfg); err != nil {
 		log.Fatal(err)
+	}
+	if cfg.Address == "" {
+		cfg.Address = "localhost:8080"
+	}
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "http://localhost:8080"
 	}
 	return cfg
 }
