@@ -65,7 +65,7 @@ func ParseConfig() *Config {
 		cfg.Address = "localhost:8080"
 	}
 	if cfg.BaseURL == "" {
-		cfg.BaseURL = "http://localhost:8080/"
+		cfg.BaseURL = "http://localhost:8080"
 	}
 	return cfg
 }

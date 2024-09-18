@@ -55,7 +55,7 @@ func PostHandler(cfg *config.Config) http.HandlerFunc {
 		fmt.Println("POST: Saved URL:", bodyLink, "with key:", newLink)
 		w.Header().Set("content-type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
-		if _, err := w.Write([]byte(cfg.BaseURL + newLink)); err != nil {
+		if _, err := w.Write([]byte(cfg.BaseURL + "/" + newLink)); err != nil {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 		}
 	}
