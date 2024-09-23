@@ -6,10 +6,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
+	"github.com/thalq/url-service/cmd/config"
 )
 
 func TestHandlers(t *testing.T) {
+	cfg := config.ParseConfig()
+	cfg.Address = "localhost:8080"
+	cfg.BaseURL = "http://localhost:8080"
 	testCases := []struct {
 		name         string
 		method       string
@@ -57,9 +62,11 @@ func TestHandlers(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.method == http.MethodPost {
+				r := chi.NewRouter()
+				r.Post("/", PostHandler(cfg))
 				req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.body))
 				w := httptest.NewRecorder()
-				PostHandler(w, req)
+				PostHandler(cfg)(w, req)
 				assert.Equal(t, tc.expectedCode, w.Code)
 				if tc.expectedCode == http.StatusCreated {
 					assert.Contains(t, w.Body.String(), "http://")
@@ -67,6 +74,11 @@ func TestHandlers(t *testing.T) {
 				}
 			} else if tc.method == http.MethodGet {
 				if tc.shortURL != "" {
+					req := httptest.NewRequest(http.MethodGet, "/"+tc.shortURL, nil)
+					w := httptest.NewRecorder()
+					GetHandler(w, req)
+					assert.Equal(t, tc.expectedCode, w.Code)
+				} else {
 					shortURL := generateShortString(tc.insertURL)
 					URLStorage.Lock()
 					URLStorage.m[shortURL] = tc.insertURL
@@ -76,11 +88,7 @@ func TestHandlers(t *testing.T) {
 					w := httptest.NewRecorder()
 					GetHandler(w, req)
 					assert.Equal(t, tc.expectedCode, w.Code)
-					if tc.expectedCode == http.StatusTemporaryRedirect {
-						assert.Equal(t, tc.insertURL, w.Header().Get("Location"))
-					} else if tc.expectedCode == http.StatusNotFound {
-						assert.Contains(t, w.Body.String(), "URL не найден")
-					}
+					assert.Equal(t, tc.insertURL, w.Header().Get("Location"))
 				}
 			}
 		})

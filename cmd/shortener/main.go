@@ -1,44 +1,29 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi"
+	"github.com/thalq/url-service/cmd/config"
 )
 
-var URLStorage = struct {
-	sync.RWMutex
-	m map[string]string
-}{m: make(map[string]string)}
-
-func generateShortString(s string) string {
-	h := sha256.New()
-	h.Write([]byte(s))
-	hashBytes := h.Sum(nil)
-
-	hexString := hex.EncodeToString(hashBytes)
-
-	encodedString := base64.StdEncoding.EncodeToString([]byte(hexString))
-
-	if len(encodedString) > 8 {
-		return encodedString[:8]
+func main() {
+	if err := run(); err != nil {
+		panic(err)
 	}
-	return encodedString
 }
 
-func main() {
+func run() error {
+	cfg := config.ParseConfig()
 	r := chi.NewRouter()
-
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", PostHandler)
-		r.Get("/{url}", GetHandler)
+		r.Post("/", PostHandler(cfg))
+		r.Get("/*", GetHandler)
 	})
-	fmt.Println("Starting server on :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	url := cfg.Address
+	fmt.Println("Running server on", url)
+	log.Fatal(http.ListenAndServe(url, r))
+	return nil
 }

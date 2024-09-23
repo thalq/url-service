@@ -1,6 +1,8 @@
 package main
 
-import "net/url"
+import (
+	"net/url"
+)
 
 func ifValidURL(testURL string) bool {
 	parsedURL, err := url.ParseRequestURI(testURL)
