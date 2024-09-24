@@ -32,6 +32,7 @@ func generateShortString(s string) string {
 	}
 	return encodedString
 }
+
 func PostHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
