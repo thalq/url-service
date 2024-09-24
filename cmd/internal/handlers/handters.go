@@ -1,4 +1,4 @@
-package shortener
+package handlers
 
 import (
 	"crypto/sha256"
