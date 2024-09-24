@@ -1,12 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/go-chi/chi"
 	"github.com/thalq/url-service/cmd/config"
+	"github.com/thalq/url-service/cmd/internal/handlers"
+	"github.com/thalq/url-service/cmd/internal/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -15,15 +16,28 @@ func main() {
 	}
 }
 
+var sugar *zap.SugaredLogger
+
+func initLogger() {
+	loggerInstance, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defer loggerInstance.Sync()
+	sugar = loggerInstance.Sugar()
+	logger.Sugar = sugar
+}
+
 func run() error {
+	initLogger()
 	cfg := config.ParseConfig()
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", PostHandler(cfg))
-		r.Get("/*", GetHandler)
+		r.Post("/", logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg))))
+		r.Get("/*", logger.WithLogging(http.HandlerFunc(handlers.GetHandler)))
 	})
 	url := cfg.Address
-	fmt.Println("Running server on", url)
-	log.Fatal(http.ListenAndServe(url, r))
+	sugar.Infoln("Running server on", url)
+	sugar.Fatal(http.ListenAndServe(url, r))
 	return nil
 }
