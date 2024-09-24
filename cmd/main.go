@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/thalq/url-service/cmd/config"
 	"github.com/thalq/url-service/cmd/internal/logger"
+	"github.com/thalq/url-service/cmd/shortener"
 	"go.uber.org/zap"
 )
 
@@ -24,17 +25,16 @@ func initLogger() {
 	}
 	defer loggerInstance.Sync()
 	sugar = loggerInstance.Sugar()
-	logger.sugar = *sugar
+	logger.Sugar = sugar
 }
 
 func run() error {
 	initLogger()
 	cfg := config.ParseConfig()
 	r := chi.NewRouter()
-	// wrappedHandler := logger.WithLogger(http.HandlerFunc(GetHandler))
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", logger.WithLogging(PostHandler(cfg)))
-		r.Get("/*", logger.WithLogging(http.HandlerFunc(GetHandler)))
+		r.Post("/", logger.WithLogging(http.HandlerFunc(shortener.PostHandler(cfg))))
+		r.Get("/*", logger.WithLogging(http.HandlerFunc(shortener.GetHandler)))
 	})
 	url := cfg.Address
 	sugar.Infoln("Running server on", url)

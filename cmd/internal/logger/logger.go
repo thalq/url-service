@@ -7,6 +7,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var Sugar *zap.SugaredLogger
+
 type (
 	// берём структуру для хранения сведений об ответе
 	responseData struct {
@@ -34,7 +36,7 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode // захватываем код статуса
 }
 
-func WithLogging(h http.Handler) http.Handler {
+func WithLogging(h http.Handler) http.HandlerFunc {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -50,7 +52,7 @@ func WithLogging(h http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		sugar.Infoln(
+		Sugar.Infoln(
 			"uri", r.RequestURI,
 			"method", r.Method,
 			"status", responseData.status, // получаем перехваченный код статуса ответа
