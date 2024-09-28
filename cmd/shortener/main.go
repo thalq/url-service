@@ -34,6 +34,7 @@ func run() error {
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg))))
+		r.Post("/api/shorten", logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg))))
 		r.Get("/*", logger.WithLogging(http.HandlerFunc(handlers.GetHandler)))
 	})
 	url := cfg.Address

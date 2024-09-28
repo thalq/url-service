@@ -9,12 +9,19 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/thalq/url-service/cmd/config"
+	"github.com/thalq/url-service/cmd/internal/logger"
+	"go.uber.org/zap"
 )
+
+var testLogger, _ = zap.NewDevelopment()
+var sugar = testLogger.Sugar()
 
 func TestHandlers(t *testing.T) {
 	cfg := config.ParseConfig()
 	cfg.Address = "localhost:8080"
 	cfg.BaseURL = "http://localhost:8080"
+	logger.Sugar = sugar
+
 	testCases := []struct {
 		name         string
 		method       string
@@ -57,20 +64,38 @@ func TestHandlers(t *testing.T) {
 			body:         "https://test.com",
 			expectedCode: http.StatusMethodNotAllowed,
 		},
+		{
+			name:         "PostBodyHandler",
+			method:       http.MethodPost,
+			body:         `{"url":"https://google.com"}`,
+			expectedCode: http.StatusOK,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.method == http.MethodPost {
-				r := chi.NewRouter()
-				r.Post("/", PostHandler(cfg))
-				req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.body))
-				w := httptest.NewRecorder()
-				PostHandler(cfg)(w, req)
-				assert.Equal(t, tc.expectedCode, w.Code)
-				if tc.expectedCode == http.StatusCreated {
-					assert.Contains(t, w.Body.String(), "http://")
-					assert.Equal(t, tc.contentType, w.Header().Get(tc.header))
+				if tc.body == `{"url":"https://google.com"}` {
+					r := chi.NewRouter()
+					r.Post("/api/shorten", PostBodyHandler(cfg))
+					req := httptest.NewRequest(http.MethodPost, "/api/shorten", strings.NewReader(tc.body))
+					w := httptest.NewRecorder()
+					PostBodyHandler(cfg)(w, req)
+					assert.Equal(t, tc.expectedCode, w.Code)
+					if tc.expectedCode == http.StatusOK {
+						assert.Contains(t, w.Body.String(), "http://")
+					}
+				} else {
+					r := chi.NewRouter()
+					r.Post("/", PostHandler(cfg))
+					req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tc.body))
+					w := httptest.NewRecorder()
+					PostHandler(cfg)(w, req)
+					assert.Equal(t, tc.expectedCode, w.Code)
+					if tc.expectedCode == http.StatusCreated {
+						assert.Contains(t, w.Body.String(), "http://")
+						assert.Equal(t, tc.contentType, w.Header().Get(tc.header))
+					}
 				}
 			} else if tc.method == http.MethodGet {
 				if tc.shortURL != "" {
