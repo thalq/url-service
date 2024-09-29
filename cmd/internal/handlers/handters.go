@@ -65,7 +65,7 @@ func PostBodyHandler(cfg *config.Config) http.HandlerFunc {
 		URLStorage.m[newLink] = url
 		URLStorage.Unlock()
 		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusCreated)
 		resp.Result = cfg.BaseURL + "/" + newLink
 		response, err := json.Marshal(resp)
 		if err != nil {
