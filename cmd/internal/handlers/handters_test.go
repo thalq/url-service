@@ -68,7 +68,7 @@ func TestHandlers(t *testing.T) {
 			name:         "PostBodyHandler",
 			method:       http.MethodPost,
 			body:         `{"url":"https://google.com"}`,
-			expectedCode: http.StatusOK,
+			expectedCode: http.StatusCreated,
 		},
 	}
 
