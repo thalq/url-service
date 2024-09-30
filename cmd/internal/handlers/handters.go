@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +13,8 @@ import (
 	"sync"
 
 	"github.com/thalq/url-service/cmd/config"
+	"github.com/thalq/url-service/cmd/internal/logger"
+	"github.com/thalq/url-service/cmd/internal/models"
 )
 
 var URLStorage = struct {
@@ -31,6 +35,45 @@ func generateShortString(s string) string {
 		return encodedString[:8]
 	}
 	return encodedString
+}
+
+func PostBodyHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req models.Request
+		var resp models.Response
+		var buf bytes.Buffer
+		_, err := buf.ReadFrom(r.Body)
+		if err != nil {
+			http.Error(w, "Не удалось прочитать тело запроса", http.StatusBadRequest)
+			return
+		}
+		logger.Sugar.Infof("Got request: %s", buf.String())
+		if err := json.Unmarshal(buf.Bytes(), &req); err != nil {
+			http.Error(w, "Не удалось распарсить JSON", http.StatusBadRequest)
+			return
+		}
+		logger.Sugar.Infof("Parsed request: %v", req)
+		url := req.URL
+		ifValidLink := ifValidURL(url)
+		if !ifValidLink {
+			http.Error(w, "Невалидный URL", http.StatusBadRequest)
+			return
+		}
+		newLink := generateShortString(url)
+		logger.Sugar.Infof("Generated short link: %s", newLink)
+		URLStorage.Lock()
+		URLStorage.m[newLink] = url
+		URLStorage.Unlock()
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		resp.Result = cfg.BaseURL + "/" + newLink
+		response, err := json.Marshal(resp)
+		if err != nil {
+			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
+			return
+		}
+		w.Write(response)
+	}
 }
 
 func PostHandler(cfg *config.Config) http.HandlerFunc {
