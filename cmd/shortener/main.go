@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	// "github.com/go-chi/chi/middleware"
 	"github.com/thalq/url-service/cmd/config"
 	"github.com/thalq/url-service/cmd/internal/gzip"
 	"github.com/thalq/url-service/cmd/internal/handlers"
