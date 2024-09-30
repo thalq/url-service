@@ -77,7 +77,7 @@ func run() error {
 	initLogger()
 	cfg := config.ParseConfig()
 	r := chi.NewRouter()
-	r.Use(middleware.AllowContentType("application/json", "text/html", "text/plain"))
+	// r.Use(middleware.AllowContentType("application/json", "text/html", "text/plain"))
 	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg)))
 	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg)))
 	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler))
