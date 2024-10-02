@@ -137,6 +137,5 @@ func GetHandler(cfg config.Config) http.HandlerFunc {
 		w.Header().Set("Location", OriginalURL)
 		w.WriteHeader(http.StatusTemporaryRedirect)
 		logger.Sugar.Infoln("Temporary Redirect sent for URL:", OriginalURL)
-		return
 	}
 }
