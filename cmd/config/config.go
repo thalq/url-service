@@ -1,71 +1,47 @@
 package config
 
 import (
-	"errors"
 	"flag"
-	"log"
 	"os"
-	"strconv"
-	"strings"
 
-	"github.com/caarlos0/env"
+	"github.com/thalq/url-service/cmd/internal/logger"
 )
 
 type Config struct {
-	Address string `env:"SERVER_ADDRESS"`
-	BaseURL string `env:"BASE_URL"`
+	Address         string `env:"SERVER_ADDRESS" json:"address"`
+	BaseURL         string `env:"BASE_URL" json:"base_url"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH" json:"file_storage_path"`
 }
 
-type NetAddress struct {
-	Host string
-	Port int
-}
-
-func (a NetAddress) String() string {
-	if a.Host == "" || a.Port == 0 {
-		return ""
+func getEnv(value string, defaultValue string) string {
+	if value, exists := os.LookupEnv(value); exists {
+		return value
 	}
-	return a.Host + ":" + strconv.Itoa(a.Port)
+	return defaultValue
 }
 
-func (a *NetAddress) Set(s string) error {
-	hp := strings.Split(s, ":")
-	if len(hp) != 2 {
-		return errors.New("NEED ADDRESS IN A FORM HOST:PORT")
-	}
-	port, err := strconv.Atoi(hp[1])
+func ParseConfig() Config {
+	defaultAddress := "localhost:8080"
+	defaultBaseURL := "http://localhost:8080"
+	currDir, err := os.Getwd()
 	if err != nil {
-		return err
+		logger.Sugar.Fatalf("Ошибка при получении текущего каталога: %v", err)
 	}
-	a.Host = hp[0]
-	a.Port = port
-	return nil
-}
+	defaultFileStoragePath := currDir + "/url_data.log"
+	envAddress := getEnv("SERVER_ADDRESS", defaultAddress)
+	envBaseURL := getEnv("BASE_URL", defaultBaseURL)
+	envFileStoragePath := getEnv("FILE_STORAGE_PATH", defaultFileStoragePath)
 
-func ParseConfig() *Config {
-	address := flag.String("a", "", "address to run server")
-	BaseURL := flag.String("b", "", "port to run server")
+	logger.Sugar.Infof("Address: %s; BaseURL: %s; FileStoragePath: %s", envAddress, envBaseURL, envFileStoragePath)
+
+	address := flag.String("a", envAddress, "address to run server")
+	baseURL := flag.String("b", envBaseURL, "port to run server")
+	fileStoragePath := flag.String("f", envFileStoragePath, "path to file storage")
+
 	flag.Parse()
-	AddrA := *address
-	AddrB := *BaseURL
-	cfg := &Config{
-		Address: os.Getenv("SERVER_ADDRESS"),
-		BaseURL: os.Getenv("BASE_URL"),
+	return Config{
+		Address:         *address,
+		BaseURL:         *baseURL,
+		FileStoragePath: *fileStoragePath,
 	}
-	if cfg.Address == "" {
-		cfg.Address = AddrA
-	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = AddrB
-	}
-	if err := env.Parse(cfg); err != nil {
-		log.Fatal(err)
-	}
-	if cfg.Address == "" {
-		cfg.Address = "localhost:8080"
-	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = "http://localhost:8080"
-	}
-	return cfg
 }
