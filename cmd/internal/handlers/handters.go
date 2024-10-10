@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -10,12 +12,26 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/thalq/url-service/cmd/config"
 	"github.com/thalq/url-service/cmd/internal/files"
 	"github.com/thalq/url-service/cmd/internal/logger"
 	"github.com/thalq/url-service/cmd/internal/models"
 )
+
+func dbConnect(cfg config.Config) (*sql.DB, error) {
+	db, err := sql.Open("pgx", cfg.DatabaseDNS)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
 
 func generateShortString(s string) string {
 	h := sha256.New()
@@ -137,5 +153,18 @@ func GetHandler(cfg config.Config) http.HandlerFunc {
 		w.Header().Set("Location", OriginalURL)
 		w.WriteHeader(http.StatusTemporaryRedirect)
 		logger.Sugar.Infoln("Temporary Redirect sent for URL:", OriginalURL)
+	}
+}
+
+func GetPingHandler(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_, err := dbConnect(cfg)
+		if err != nil {
+			logger.Sugar.Error("Database connection error")
+			http.Error(w, "Database connection error", http.StatusInternalServerError)
+			return
+		}
+		logger.Sugar.Infoln("Database connection established")
+		w.WriteHeader(http.StatusOK)
 	}
 }

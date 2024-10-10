@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/thalq/url-service/cmd/config"
 	"github.com/thalq/url-service/cmd/internal/gzip"
 	"github.com/thalq/url-service/cmd/internal/handlers"
@@ -69,11 +70,13 @@ func run() error {
 	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg)))
 	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg)))
 	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg)))
+	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg)))
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", gzipMiddleware(postHandler))
 		r.Post("/api/shorten", gzipMiddleware(postBodyHandler))
 		r.Get("/*", getHandler)
+		r.Get("/ping", getPingHandler)
 	})
 	url := cfg.Address
 	sugar.Infoln("Running server on", url)
