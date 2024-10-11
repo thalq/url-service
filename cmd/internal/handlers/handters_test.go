@@ -37,13 +37,13 @@ func TestHandlers(t *testing.T) {
 	cfg.Address = "localhost:8080"
 	cfg.BaseURL = "http://localhost:8080"
 	logger.Sugar = sugar
-	db, db_err := data_base.DBConnect(cfg)
+	db, dbErr := data_base.DBConnect(cfg)
 
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", http.HandlerFunc(PostHandler(cfg, db, db_err)))
-		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg, db, db_err)))
-		r.Get("/*", http.HandlerFunc(GetHandler(cfg, db, db_err)))
+		r.Post("/", http.HandlerFunc(PostHandler(cfg, db, dbErr)))
+		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg, db, dbErr)))
+		r.Get("/*", http.HandlerFunc(GetHandler(cfg, db, dbErr)))
 	})
 
 	t.Run("POST valid URL", func(t *testing.T) {

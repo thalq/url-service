@@ -17,7 +17,7 @@ import (
 	"github.com/thalq/url-service/cmd/internal/structures"
 )
 
-func PostBodyHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
+func PostBodyHandler(cfg config.Config, db *sql.DB, dbErr error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req models.Request
 		var resp models.Response
@@ -52,7 +52,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFu
 		}
 		w.Write(response)
 
-		if db_err == nil {
+		if dbErr == nil {
 			logger.Sugar.Infoln("Database connection established")
 			URLData := structures.URLData{
 				OriginalURL: url,
@@ -78,7 +78,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFu
 	}
 }
 
-func PostHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
+func PostHandler(cfg config.Config, db *sql.DB, dbErr error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -101,7 +101,7 @@ func PostHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 		}
 
-		if db_err == nil {
+		if dbErr == nil {
 			logger.Sugar.Infoln("Database connection established")
 			URLData := structures.URLData{
 				OriginalURL: bodyLink,
@@ -127,11 +127,11 @@ func PostHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
 	}
 }
 
-func GetHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
+func GetHandler(cfg config.Config, db *sql.DB, dbErr error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortURL := strings.TrimPrefix(r.URL.Path, "/")
 		logger.Sugar.Infoln("GET: Requested key:", shortURL)
-		if db_err == nil {
+		if dbErr == nil {
 			logger.Sugar.Infoln("Database connection established")
 			URLData, err := db_operations.QueryShortURL(r.Context(), db, shortURL)
 			if err != nil {
