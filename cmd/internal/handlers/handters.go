@@ -2,53 +2,22 @@ package handlers
 
 import (
 	"bytes"
-	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/thalq/url-service/cmd/config"
+	"github.com/thalq/url-service/cmd/internal/db_operations"
 	"github.com/thalq/url-service/cmd/internal/files"
 	"github.com/thalq/url-service/cmd/internal/logger"
 	"github.com/thalq/url-service/cmd/internal/models"
+	"github.com/thalq/url-service/cmd/internal/shortener"
+	"github.com/thalq/url-service/cmd/internal/structures"
 )
 
-func dbConnect(cfg config.Config) (*sql.DB, error) {
-	db, err := sql.Open("pgx", cfg.DatabaseDNS)
-	if err != nil {
-		return nil, err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
-func generateShortString(s string) string {
-	h := sha256.New()
-	h.Write([]byte(s))
-	hashBytes := h.Sum(nil)
-
-	hexString := hex.EncodeToString(hashBytes)
-
-	encodedString := base64.StdEncoding.EncodeToString([]byte(hexString))
-
-	if len(encodedString) > 8 {
-		return encodedString[:8]
-	}
-	return encodedString
-}
-
-func PostBodyHandler(cfg config.Config) http.HandlerFunc {
+func PostBodyHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req models.Request
 		var resp models.Response
@@ -70,7 +39,7 @@ func PostBodyHandler(cfg config.Config) http.HandlerFunc {
 			http.Error(w, "Невалидный URL", http.StatusBadRequest)
 			return
 		}
-		newLink := generateShortString(url)
+		newLink := shortener.GenerateShortString(url)
 		logger.Sugar.Infof("Generated short link: %s", newLink)
 
 		w.Header().Set("content-type", "application/json")
@@ -82,22 +51,34 @@ func PostBodyHandler(cfg config.Config) http.HandlerFunc {
 			return
 		}
 		w.Write(response)
-		Producer, err := files.NewProducer(cfg.FileStoragePath)
-		if err != nil {
-			logger.Sugar.Fatal(err)
-		}
-		defer Producer.Close()
-		var URLData = &files.URLData{
-			OriginalURL: url,
-			ShortURL:    newLink,
-		}
-		if err := Producer.WriteEvent(URLData); err != nil {
-			log.Fatal(err)
+
+		if db_err == nil {
+			logger.Sugar.Infoln("Database connection established")
+			URLData := structures.URLData{
+				OriginalURL: url,
+				ShortURL:    newLink,
+			}
+			if err := db_operations.ExecInsertURL(r.Context(), db, URLData); err != nil {
+				logger.Sugar.Fatal(err)
+			}
+		} else {
+			Producer, err := files.NewProducer(cfg.FileStoragePath)
+			if err != nil {
+				logger.Sugar.Fatal(err)
+			}
+			defer Producer.Close()
+			var URLData = &structures.URLData{
+				OriginalURL: url,
+				ShortURL:    newLink,
+			}
+			if err := Producer.WriteEvent(URLData); err != nil {
+				logger.Sugar.Fatal(err)
+			}
 		}
 	}
 }
 
-func PostHandler(cfg config.Config) http.HandlerFunc {
+func PostHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -111,7 +92,7 @@ func PostHandler(cfg config.Config) http.HandlerFunc {
 			http.Error(w, "Невалидный URL", http.StatusBadRequest)
 			return
 		}
-		newLink := generateShortString(bodyLink)
+		newLink := shortener.GenerateShortString(bodyLink)
 
 		logger.Sugar.Infoln("POST: Saved URL:", bodyLink, "with key:", newLink)
 		w.Header().Set("content-type", "text/plain")
@@ -119,46 +100,71 @@ func PostHandler(cfg config.Config) http.HandlerFunc {
 		if _, err := w.Write([]byte(cfg.BaseURL + "/" + newLink)); err != nil {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 		}
-		Producer, err := files.NewProducer(cfg.FileStoragePath)
-		if err != nil {
-			logger.Sugar.Fatal(err)
-		}
-		defer Producer.Close()
-		var URLData = &files.URLData{
-			OriginalURL: bodyLink,
-			ShortURL:    newLink,
-		}
-		if err := Producer.WriteEvent(URLData); err != nil {
-			log.Fatal(err)
+
+		if db_err == nil {
+			logger.Sugar.Infoln("Database connection established")
+			URLData := structures.URLData{
+				OriginalURL: bodyLink,
+				ShortURL:    newLink,
+			}
+			if err := db_operations.ExecInsertURL(r.Context(), db, URLData); err != nil {
+				logger.Sugar.Fatal(err)
+			}
+		} else {
+			Producer, err := files.NewProducer(cfg.FileStoragePath)
+			if err != nil {
+				logger.Sugar.Fatal(err)
+			}
+			defer Producer.Close()
+			var URLData = &structures.URLData{
+				OriginalURL: bodyLink,
+				ShortURL:    newLink,
+			}
+			if err := Producer.WriteEvent(URLData); err != nil {
+				logger.Sugar.Fatal(err)
+			}
 		}
 	}
 }
 
-func GetHandler(cfg config.Config) http.HandlerFunc {
+func GetHandler(cfg config.Config, db *sql.DB, db_err error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortURL := strings.TrimPrefix(r.URL.Path, "/")
 		logger.Sugar.Infoln("GET: Requested key:", shortURL)
-		Consumer, err := files.NewConsumer(cfg.FileStoragePath)
-		if err != nil {
-			logger.Sugar.Fatal(err)
+		if db_err == nil {
+			logger.Sugar.Infoln("Database connection established")
+			URLData, err := db_operations.QueryShortURL(r.Context(), db, shortURL)
+			if err != nil {
+				logger.Sugar.Error("ShortURL not found")
+				http.Error(w, "ShortURL not found in database", http.StatusNotFound)
+				return
+			}
+			logger.Sugar.Infoln("GET: Original URL from database:", URLData.OriginalURL)
+			w.Header().Set("Location", URLData.OriginalURL)
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			logger.Sugar.Infoln("Temporary Redirect sent for URL:", URLData.OriginalURL)
+		} else {
+			Consumer, err := files.NewConsumer(cfg.FileStoragePath)
+			if err != nil {
+				logger.Sugar.Fatal(err)
+			}
+			defer Consumer.Close()
+			OriginalURL, err := Consumer.GetURL(shortURL)
+			if err != nil {
+				logger.Sugar.Error("ShortURL not found in file")
+				http.Error(w, "ShortURL not found", http.StatusNotFound)
+				return
+			}
+			logger.Sugar.Infoln("GET: Original URL from file:", OriginalURL)
+			w.Header().Set("Location", OriginalURL)
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			logger.Sugar.Infoln("Temporary Redirect sent for URL:", OriginalURL)
 		}
-		defer Consumer.Close()
-		OriginalURL, err := Consumer.GetURL(shortURL)
-		if err != nil {
-			logger.Sugar.Error("ShortURL not found")
-			http.Error(w, "ShortURL not found", http.StatusNotFound)
-			return
-		}
-		logger.Sugar.Infoln(OriginalURL)
-		w.Header().Set("Location", OriginalURL)
-		w.WriteHeader(http.StatusTemporaryRedirect)
-		logger.Sugar.Infoln("Temporary Redirect sent for URL:", OriginalURL)
 	}
 }
 
-func GetPingHandler(cfg config.Config) http.HandlerFunc {
+func GetPingHandler(cfg config.Config, err error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, err := dbConnect(cfg)
 		if err != nil {
 			logger.Sugar.Error("Database connection error")
 			http.Error(w, "Database connection error", http.StatusInternalServerError)

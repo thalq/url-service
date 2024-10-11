@@ -29,12 +29,12 @@ func ParseConfig() Config {
 		logger.Sugar.Fatalf("Ошибка при получении текущего каталога: %v", err)
 	}
 	defaultFileStoragePath := currDir + "/url_data.log"
-	defaultDatabaseDNS := "postgres://postgres:postgres@localhost/postgres?sslmode=disable"
+	// defaultDatabaseDNS := "postgres://postgres:postgres@localhost/postgres?sslmode=disable"
 
 	envAddress := getEnv("SERVER_ADDRESS", defaultAddress)
 	envBaseURL := getEnv("BASE_URL", defaultBaseURL)
 	envFileStoragePath := getEnv("FILE_STORAGE_PATH", defaultFileStoragePath)
-	envDatabaseDNS := getEnv("DATABASE_DSN", defaultDatabaseDNS)
+	envDatabaseDNS := getEnv("DATABASE_DSN", "") // TODO: change to DATABASE_DNS
 
 	logger.Sugar.Infof("Address: %s; BaseURL: %s; FileStoragePath: %s", envAddress, envBaseURL, envFileStoragePath)
 

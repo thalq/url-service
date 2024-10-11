@@ -10,8 +10,11 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/thalq/url-service/cmd/config"
+	"github.com/thalq/url-service/cmd/internal/data_base"
 	"github.com/thalq/url-service/cmd/internal/files"
 	"github.com/thalq/url-service/cmd/internal/logger"
+	"github.com/thalq/url-service/cmd/internal/shortener"
+	"github.com/thalq/url-service/cmd/internal/structures"
 	"go.uber.org/zap"
 )
 
@@ -34,12 +37,13 @@ func TestHandlers(t *testing.T) {
 	cfg.Address = "localhost:8080"
 	cfg.BaseURL = "http://localhost:8080"
 	logger.Sugar = sugar
+	db, db_err := data_base.DBConnect(cfg)
 
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", http.HandlerFunc(PostHandler(cfg)))
-		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg)))
-		r.Get("/*", http.HandlerFunc(GetHandler(cfg)))
+		r.Post("/", http.HandlerFunc(PostHandler(cfg, db, db_err)))
+		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg, db, db_err)))
+		r.Get("/*", http.HandlerFunc(GetHandler(cfg, db, db_err)))
 	})
 
 	t.Run("POST valid URL", func(t *testing.T) {
@@ -75,13 +79,13 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("GET valid URL", func(t *testing.T) {
-		shortURL := generateShortString("https://test.com")
+		shortURL := shortener.GenerateShortString("https://test.com")
 		Producer, err := files.NewProducer(cfg.FileStoragePath)
 		if err != nil {
 			logger.Sugar.Fatal(err)
 		}
 		defer Producer.Close()
-		var URLData = &files.URLData{
+		var URLData = &structures.URLData{
 			OriginalURL: "https://test.com",
 			ShortURL:    shortURL,
 		}
@@ -112,13 +116,13 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("GET valid URL with JSON body", func(t *testing.T) {
-		shortURL := generateShortString("https://test1.com")
+		shortURL := shortener.GenerateShortString("https://test1.com")
 		Producer, err := files.NewProducer(cfg.FileStoragePath)
 		if err != nil {
 			logger.Sugar.Fatal(err)
 		}
 		defer Producer.Close()
-		var URLData = &files.URLData{
+		var URLData = &structures.URLData{
 			OriginalURL: "https://test1.com",
 			ShortURL:    shortURL,
 		}

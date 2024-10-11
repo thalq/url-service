@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/thalq/url-service/cmd/config"
+	"github.com/thalq/url-service/cmd/internal/data_base"
 	"github.com/thalq/url-service/cmd/internal/gzip"
 	"github.com/thalq/url-service/cmd/internal/handlers"
 	"github.com/thalq/url-service/cmd/internal/logger"
@@ -67,10 +68,11 @@ func run() error {
 	initLogger()
 	cfg := config.ParseConfig()
 	r := chi.NewRouter()
-	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg)))
-	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg)))
-	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg)))
-	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg)))
+	db, err := data_base.DBConnect(cfg)
+	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg, db, err)))
+	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg, db, err)))
+	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg, db, err)))
+	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg, err)))
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", gzipMiddleware(postHandler))
