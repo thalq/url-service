@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/thalq/url-service/cmd/config"
-	"github.com/thalq/url-service/cmd/internal/db_operations"
 	"github.com/thalq/url-service/cmd/internal/files"
 	"github.com/thalq/url-service/cmd/internal/logger"
 	"github.com/thalq/url-service/cmd/internal/models"
+	"github.com/thalq/url-service/cmd/internal/operations"
 	"github.com/thalq/url-service/cmd/internal/shortener"
 	"github.com/thalq/url-service/cmd/internal/structures"
 )
@@ -58,7 +58,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB, dbErr error) http.HandlerFun
 				OriginalURL: url,
 				ShortURL:    newLink,
 			}
-			if err := db_operations.ExecInsertURL(r.Context(), db, URLData); err != nil {
+			if err := operations.ExecInsertURL(r.Context(), db, URLData); err != nil {
 				logger.Sugar.Fatal(err)
 			}
 		} else {
@@ -107,7 +107,7 @@ func PostHandler(cfg config.Config, db *sql.DB, dbErr error) http.HandlerFunc {
 				OriginalURL: bodyLink,
 				ShortURL:    newLink,
 			}
-			if err := db_operations.ExecInsertURL(r.Context(), db, URLData); err != nil {
+			if err := operations.ExecInsertURL(r.Context(), db, URLData); err != nil {
 				logger.Sugar.Fatal(err)
 			}
 		} else {
@@ -133,7 +133,7 @@ func GetHandler(cfg config.Config, db *sql.DB, dbErr error) http.HandlerFunc {
 		logger.Sugar.Infoln("GET: Requested key:", shortURL)
 		if dbErr == nil {
 			logger.Sugar.Infoln("Database connection established")
-			URLData, err := db_operations.QueryShortURL(r.Context(), db, shortURL)
+			URLData, err := operations.QueryShortURL(r.Context(), db, shortURL)
 			if err != nil {
 				logger.Sugar.Error("ShortURL not found")
 				http.Error(w, "ShortURL not found in database", http.StatusNotFound)

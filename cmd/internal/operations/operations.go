@@ -1,4 +1,4 @@
-package db_operations
+package operations
 
 import (
 	"context"
