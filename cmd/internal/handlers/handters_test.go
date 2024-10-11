@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/thalq/url-service/cmd/config"
-	"github.com/thalq/url-service/cmd/internal/dataBase"
+	database "github.com/thalq/url-service/cmd/internal/dataBase"
 	"github.com/thalq/url-service/cmd/internal/files"
 	"github.com/thalq/url-service/cmd/internal/logger"
 	"github.com/thalq/url-service/cmd/internal/shortener"
@@ -37,7 +37,7 @@ func TestHandlers(t *testing.T) {
 	cfg.Address = "localhost:8080"
 	cfg.BaseURL = "http://localhost:8080"
 	logger.Sugar = sugar
-	db, dbErr := dataBase.DBConnect(cfg)
+	db, dbErr := database.DBConnect(cfg)
 
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
