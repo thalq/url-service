@@ -19,5 +19,6 @@ func DBConnect(cfg config.Config) (*sql.DB, error) {
 	if err := db.PingContext(ctx); err != nil {
 		return nil, err
 	}
+	db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS urls (original_url TEXT PRIMARY KEY, short_url TEXT)")
 	return db, nil
 }
