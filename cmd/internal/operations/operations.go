@@ -30,7 +30,7 @@ func QueryShortURL(ctx context.Context, db *sql.DB, shortURL string) (structures
 
 func ExecInsertURL(ctx context.Context, db *sql.DB, URLData *structures.URLData) error {
 	_, err := db.ExecContext(ctx, "INSERT INTO urls (original_url, short_url) "+
-		"VALUES ($1, $2) ON CONFLICT (original_url) DO NOTHING", URLData.OriginalURL, URLData.ShortURL)
+		"VALUES ($1, $2, $3) ON CONFLICT (original_url) DO NOTHING", URLData.OriginalURL, URLData.ShortURL, URLData.CorrelationID)
 	if err != nil {
 		logger.Sugar.Errorf("Failed to insert URL: %v into database", err)
 		return err
@@ -44,14 +44,14 @@ func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []structures.U
 		return err
 	}
 	stmt, err := tx.PrepareContext(ctx,
-		"INSERT INTO urls (original_url, short_url) "+
-			"VALUES ($1, $2) ON CONFLICT (original_url) DO NOTHING")
+		"INSERT INTO urls (original_url, short_url, correlation_id) "+
+			"VALUES ($1, $2, $3) ON CONFLICT (original_url) DO NOTHING")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, data := range URLData {
-		_, err := stmt.ExecContext(ctx, data.OriginalURL, data.ShortURL)
+		_, err := stmt.ExecContext(ctx, data.OriginalURL, data.ShortURL, data.CorrelationID)
 		if err != nil {
 			tx.Rollback()
 			return err

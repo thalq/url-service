@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/thalq/url-service/cmd/config"
 	"github.com/thalq/url-service/cmd/internal/files"
 	"github.com/thalq/url-service/cmd/internal/logger"
@@ -130,13 +131,19 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			}
 			newLink := shortener.GenerateShortString(urlReq.OriginalURL)
 			logger.Sugar.Infof("Generated short link: %s", newLink)
+
+			if urlReq.CorrelationID == "" {
+				urlReq.CorrelationID = uuid.New().String()
+			}
+
 			URLDatas = append(URLDatas, structures.URLData{
-				OriginalURL: urlReq.OriginalURL,
-				ShortURL:    newLink,
+				CorrelationID: urlReq.CorrelationID,
+				OriginalURL:   urlReq.OriginalURL,
+				ShortURL:      newLink,
 			})
 			batchResp = append(batchResp, models.BatchURLResponse{
-				// CorrelationID: urlReq.CorrelationID,
-				ShortURL: cfg.BaseURL + "/" + newLink,
+				CorrelationID: urlReq.CorrelationID,
+				ShortURL:      cfg.BaseURL + "/" + newLink,
 			})
 		}
 
@@ -162,8 +169,9 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			defer Producer.Close()
 			for _, data := range URLDatas {
 				toFileSaveData := &structures.URLData{
-					OriginalURL: data.OriginalURL,
-					ShortURL:    data.ShortURL,
+					CorrelationID: data.CorrelationID,
+					OriginalURL:   data.OriginalURL,
+					ShortURL:      data.ShortURL,
 				}
 				if err := Producer.WriteEvent(toFileSaveData); err != nil {
 					logger.Sugar.Fatal(err)

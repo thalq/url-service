@@ -5,6 +5,8 @@ go 1.22.5
 require (
 	github.com/go-chi/chi v1.5.5
 	github.com/go-resty/resty/v2 v2.14.0
+	github.com/gofrs/uuid v4.4.0+incompatible
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
