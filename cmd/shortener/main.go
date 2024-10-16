@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
-	"database/sql"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/thalq/url-service/cmd/config"
+	database "github.com/thalq/url-service/cmd/internal/dataBase"
 	"github.com/thalq/url-service/cmd/internal/gzip"
 	"github.com/thalq/url-service/cmd/internal/handlers"
 	"github.com/thalq/url-service/cmd/internal/logger"
@@ -69,24 +68,15 @@ func run() error {
 	initLogger()
 	cfg := config.ParseConfig()
 	r := chi.NewRouter()
-	// db := database.DBConnect(cfg)
-
-	db, err := sql.Open("pgx", cfg.DatabaseDNS)
-	if err != nil {
-		return nil
-	}
-	defer db.Close()
-	ctx := context.Background()
-	if err := db.PingContext(ctx); err != nil {
-		return nil
-	}
-	db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS urls (original_url TEXT PRIMARY KEY, short_url TEXT)")
+	db := database.DBConnect(cfg)
 
 	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg, db)))
 	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg, db)))
 	postBatchHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBatchHandler(cfg, db)))
 	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg, db)))
 	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg, db)))
+
+	defer db.Close()
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", gzipMiddleware(postHandler))
