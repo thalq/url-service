@@ -5,16 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/thalq/url-service/cmd/internal/structures"
 )
 
 type Producer struct {
 	file   *os.File
 	writer *bufio.Writer
-}
-
-type URLData struct {
-	OriginalURL string `json:"original_url"`
-	ShortURL    string `json:"short_url"`
 }
 
 func NewProducer(filename string) (*Producer, error) {
@@ -28,7 +25,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) WriteEvent(URLData *URLData) error {
+func (p *Producer) WriteEvent(URLData *structures.URLData) error {
 	data, err := json.Marshal(&URLData)
 	if err != nil {
 		return err
@@ -66,7 +63,7 @@ func NewConsumer(filename string) (*Consumer, error) {
 
 func (c *Consumer) GetURL(shortURL string) (string, error) {
 	for c.scanner.Scan() {
-		var data URLData
+		var data structures.URLData
 		if err := json.Unmarshal(c.scanner.Bytes(), &data); err != nil {
 			return "", err
 		}

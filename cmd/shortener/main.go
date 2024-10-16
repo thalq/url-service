@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/thalq/url-service/cmd/config"
+	database "github.com/thalq/url-service/cmd/internal/dataBase"
 	"github.com/thalq/url-service/cmd/internal/gzip"
 	"github.com/thalq/url-service/cmd/internal/handlers"
 	"github.com/thalq/url-service/cmd/internal/logger"
@@ -67,14 +68,20 @@ func run() error {
 	initLogger()
 	cfg := config.ParseConfig()
 	r := chi.NewRouter()
-	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg)))
-	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg)))
-	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg)))
-	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg)))
+	db := database.DBConnect(cfg)
+
+	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg, db)))
+	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg, db)))
+	postBatchHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBatchHandler(cfg, db)))
+	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg, db)))
+	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg, db)))
+
+	defer db.Close()
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", gzipMiddleware(postHandler))
 		r.Post("/api/shorten", gzipMiddleware(postBodyHandler))
+		r.Post("/api/shorten/batch", gzipMiddleware(postBatchHandler))
 		r.Get("/*", getHandler)
 		r.Get("/ping", getPingHandler)
 	})

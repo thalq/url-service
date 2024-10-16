@@ -10,8 +10,11 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 	"github.com/thalq/url-service/cmd/config"
+	database "github.com/thalq/url-service/cmd/internal/dataBase"
 	"github.com/thalq/url-service/cmd/internal/files"
 	"github.com/thalq/url-service/cmd/internal/logger"
+	"github.com/thalq/url-service/cmd/internal/shortener"
+	"github.com/thalq/url-service/cmd/internal/structures"
 	"go.uber.org/zap"
 )
 
@@ -34,12 +37,14 @@ func TestHandlers(t *testing.T) {
 	cfg.Address = "localhost:8080"
 	cfg.BaseURL = "http://localhost:8080"
 	logger.Sugar = sugar
+	db := database.DBConnect(cfg)
 
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", http.HandlerFunc(PostHandler(cfg)))
-		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg)))
-		r.Get("/*", http.HandlerFunc(GetHandler(cfg)))
+		r.Post("/", http.HandlerFunc(PostHandler(cfg, db)))
+		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg, db)))
+		r.Post("/api/shorten/batch", http.HandlerFunc(PostBatchHandler(cfg, db)))
+		r.Get("/*", http.HandlerFunc(GetHandler(cfg, db)))
 	})
 
 	t.Run("POST valid URL", func(t *testing.T) {
@@ -64,6 +69,22 @@ func TestHandlers(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
+	t.Run("POST batch valid URLs", func(t *testing.T) {
+		reqBody := `[
+			{"original_url": "http://example.com"},
+			{"original_url": "http://example.org"}
+		]`
+
+		req, err := http.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(reqBody))
+		assert.NoError(t, err)
+
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusCreated, rec.Code)
+		assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
+	})
+
 	t.Run("GET non-existent URL", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, "/nonexist", nil)
 		assert.NoError(t, err)
@@ -75,13 +96,13 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("GET valid URL", func(t *testing.T) {
-		shortURL := generateShortString("https://test.com")
+		shortURL := shortener.GenerateShortString("https://test.com")
 		Producer, err := files.NewProducer(cfg.FileStoragePath)
 		if err != nil {
 			logger.Sugar.Fatal(err)
 		}
 		defer Producer.Close()
-		var URLData = &files.URLData{
+		var URLData = &structures.URLData{
 			OriginalURL: "https://test.com",
 			ShortURL:    shortURL,
 		}
@@ -112,13 +133,13 @@ func TestHandlers(t *testing.T) {
 	})
 
 	t.Run("GET valid URL with JSON body", func(t *testing.T) {
-		shortURL := generateShortString("https://test1.com")
+		shortURL := shortener.GenerateShortString("https://test1.com")
 		Producer, err := files.NewProducer(cfg.FileStoragePath)
 		if err != nil {
 			logger.Sugar.Fatal(err)
 		}
 		defer Producer.Close()
-		var URLData = &files.URLData{
+		var URLData = &structures.URLData{
 			OriginalURL: "https://test1.com",
 			ShortURL:    shortURL,
 		}
