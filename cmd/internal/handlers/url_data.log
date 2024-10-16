@@ -47,3 +47,9 @@
 {"original_url":"https://test.com","short_url":"Mzk2OTM2","correlation_id":""}
 {"original_url":"https://example.com","short_url":"MTAwNjgw","correlation_id":""}
 {"original_url":"https://test1.com","short_url":"NWQxZGFi","correlation_id":""}
+{"original_url":"http://example.com","short_url":"ZjBlNmE2","correlation_id":"0c4d2b8a-8f16-4e68-87b4-047534f5f640"}
+{"original_url":"http://example.com","short_url":"ZjBlNmE2","correlation_id":"09dba65b-61ef-4a1b-b1cd-8f6a350be26d"}
+{"original_url":"http://example.org","short_url":"OTcxYTU2","correlation_id":"96773051-ff80-4d21-b2c1-fe5ea3cfe0b6"}
+{"original_url":"https://test.com","short_url":"Mzk2OTM2","correlation_id":""}
+{"original_url":"https://example.com","short_url":"MTAwNjgw","correlation_id":"af9e961d-0557-4ac8-8b5b-c0fb5ba5336d"}
+{"original_url":"https://test1.com","short_url":"NWQxZGFi","correlation_id":""}
