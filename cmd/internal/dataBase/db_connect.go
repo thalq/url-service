@@ -12,7 +12,7 @@ func DBConnect(cfg config.Config) *sql.DB {
 	if err != nil {
 		return nil
 	}
-	// defer db.Close()
+	defer db.Close()
 	ctx := context.Background()
 	if err := db.PingContext(ctx); err != nil {
 		return nil
