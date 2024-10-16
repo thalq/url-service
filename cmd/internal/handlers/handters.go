@@ -54,8 +54,9 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		w.Write(response)
 
 		var URLData = &structures.URLData{
-			OriginalURL: url,
-			ShortURL:    newLink,
+			CorrelationID: uuid.New().String(),
+			OriginalURL:   url,
+			ShortURL:      newLink,
 		}
 		if db != nil {
 			operations.InserDataIntoDB(r.Context(), db, URLData)
@@ -89,8 +90,9 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 
 		var URLData = &structures.URLData{
-			OriginalURL: bodyLink,
-			ShortURL:    newLink,
+			CorrelationID: uuid.New().String(),
+			OriginalURL:   bodyLink,
+			ShortURL:      newLink,
 		}
 
 		if db != nil {
