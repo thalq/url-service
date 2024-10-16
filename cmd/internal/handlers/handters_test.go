@@ -37,13 +37,14 @@ func TestHandlers(t *testing.T) {
 	cfg.Address = "localhost:8080"
 	cfg.BaseURL = "http://localhost:8080"
 	logger.Sugar = sugar
-	db, dbErr := database.DBConnect(cfg)
+	db := database.DBConnect(cfg)
 
 	r := chi.NewRouter()
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", http.HandlerFunc(PostHandler(cfg, db, dbErr)))
-		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg, db, dbErr)))
-		r.Get("/*", http.HandlerFunc(GetHandler(cfg, db, dbErr)))
+		r.Post("/", http.HandlerFunc(PostHandler(cfg, db)))
+		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg, db)))
+		r.Post("/api/shorten/batch", http.HandlerFunc(PostBatchHandler(cfg, db)))
+		r.Get("/*", http.HandlerFunc(GetHandler(cfg, db)))
 	})
 
 	t.Run("POST valid URL", func(t *testing.T) {
@@ -66,6 +67,22 @@ func TestHandlers(t *testing.T) {
 		r.ServeHTTP(rec, req)
 
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("POST batch valid URLs", func(t *testing.T) {
+		reqBody := `[
+			{"original_url": "http://example.com"},
+			{"original_url": "http://example.org"}
+		]`
+
+		req, err := http.NewRequest(http.MethodPost, "/api/shorten/batch", strings.NewReader(reqBody))
+		assert.NoError(t, err)
+
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusCreated, rec.Code)
+		assert.Contains(t, rec.Header().Get("Content-Type"), "application/json")
 	})
 
 	t.Run("GET non-existent URL", func(t *testing.T) {

@@ -68,15 +68,18 @@ func run() error {
 	initLogger()
 	cfg := config.ParseConfig()
 	r := chi.NewRouter()
-	db, err := database.DBConnect(cfg)
-	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg, db, err)))
-	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg, db, err)))
-	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg, db, err)))
-	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg, err)))
+	db := database.DBConnect(cfg)
+
+	postHandler := logger.WithLogging(http.HandlerFunc(handlers.PostHandler(cfg, db)))
+	postBodyHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBodyHandler(cfg, db)))
+	postBatchHandler := logger.WithLogging(http.HandlerFunc(handlers.PostBatchHandler(cfg, db)))
+	getHandler := logger.WithLogging(http.HandlerFunc(handlers.GetHandler(cfg, db)))
+	getPingHandler := logger.WithLogging(http.HandlerFunc(handlers.GetPingHandler(cfg, db)))
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/", gzipMiddleware(postHandler))
 		r.Post("/api/shorten", gzipMiddleware(postBodyHandler))
+		r.Post("/api/shorten/batch", gzipMiddleware(postBatchHandler))
 		r.Get("/*", getHandler)
 		r.Get("/ping", getPingHandler)
 	})
