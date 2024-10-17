@@ -83,12 +83,6 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 		newLink := shortener.GenerateShortString(bodyLink)
 
-		w.Header().Set("content-type", "text/plain")
-		w.WriteHeader(http.StatusCreated)
-		if _, err := w.Write([]byte(cfg.BaseURL + "/" + newLink)); err != nil {
-			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
-		}
-
 		var URLData = &structures.URLData{
 			CorrelationID: uuid.New().String(),
 			OriginalURL:   bodyLink,
@@ -98,13 +92,23 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		if db != nil {
 			err := operations.InserDataIntoDB(r.Context(), db, URLData)
 			if err != nil {
-				logger.Sugar.Fatal(err)
+				if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
+					http.Error(w, "URL уже существует", http.StatusConflict)
+					return
+				}
+				http.Error(w, "Не удалось записать в базу данных", http.StatusInternalServerError)
 			}
 		} else {
 			err := operations.InsertDataIntoFile(cfg, URLData)
 			if err != nil {
-				logger.Sugar.Fatal(err)
+				logger.Sugar.Error(err)
 			}
+		}
+
+		w.Header().Set("content-type", "text/plain")
+		w.WriteHeader(http.StatusCreated)
+		if _, err := w.Write([]byte(cfg.BaseURL + "/" + newLink)); err != nil {
+			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 		}
 	}
 }
@@ -113,7 +117,7 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var batchReq []models.BatchURLRequest
 		var batchResp []models.BatchURLResponse
-		var URLDatas []structures.URLData
+		var URLDatas []*structures.URLData
 		var buf bytes.Buffer
 		_, err := buf.ReadFrom(r.Body)
 		if err != nil {
@@ -138,7 +142,7 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				urlReq.CorrelationID = uuid.New().String()
 			}
 
-			URLDatas = append(URLDatas, structures.URLData{
+			URLDatas = append(URLDatas, &structures.URLData{
 				CorrelationID: urlReq.CorrelationID,
 				OriginalURL:   urlReq.OriginalURL,
 				ShortURL:      newLink,

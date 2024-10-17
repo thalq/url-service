@@ -28,17 +28,13 @@ func QueryShortURL(ctx context.Context, db *sql.DB, shortURL string) (structures
 	return URLData, nil
 }
 
-func ExecInsertURL(ctx context.Context, db *sql.DB, URLData *structures.URLData) error {
+func InsertURL(ctx context.Context, db *sql.DB, URLData *structures.URLData) error {
 	_, err := db.ExecContext(ctx, "INSERT INTO urls (original_url, short_url, correlation_id) "+
-		"VALUES ($1, $2, $3) ON CONFLICT (original_url) DO NOTHING", URLData.OriginalURL, URLData.ShortURL, URLData.CorrelationID)
-	if err != nil {
-		logger.Sugar.Errorf("Failed to insert URL: %v into database", err)
-		return err
-	}
-	return nil
+		"VALUES ($1, $2, $3)", URLData.OriginalURL, URLData.ShortURL, URLData.CorrelationID)
+	return err
 }
 
-func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []structures.URLData) error {
+func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*structures.URLData) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -66,8 +62,9 @@ func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []structures.U
 
 func InserDataIntoDB(ctx context.Context, db *sql.DB, URLData *structures.URLData) error {
 	logger.Sugar.Infoln("Database connection established")
-	if err := ExecInsertURL(ctx, db, URLData); err != nil {
-		logger.Sugar.Fatal(err)
+	if err := InsertURL(ctx, db, URLData); err != nil {
+		logger.Sugar.Error("Failed to insert URL: %v into database", err)
+		return err
 	}
 	logger.Sugar.Infof("URL inserted into database: %s:%s", URLData.OriginalURL, URLData.ShortURL)
 	return nil
@@ -76,11 +73,11 @@ func InserDataIntoDB(ctx context.Context, db *sql.DB, URLData *structures.URLDat
 func InsertDataIntoFile(cfg config.Config, URLData *structures.URLData) error {
 	Producer, err := files.NewProducer(cfg.FileStoragePath)
 	if err != nil {
-		logger.Sugar.Fatal(err)
+		logger.Sugar.Error(err)
 	}
 	defer Producer.Close()
 	if err := Producer.WriteEvent(URLData); err != nil {
-		logger.Sugar.Fatal(err)
+		logger.Sugar.Error(err)
 	}
 	logger.Sugar.Infof("URL inserted into file: %s:%s", URLData.OriginalURL, URLData.ShortURL)
 	return nil
