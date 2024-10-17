@@ -59,7 +59,14 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			ShortURL:      newLink,
 		}
 		if db != nil {
-			operations.InserDataIntoDB(r.Context(), db, URLData)
+			err := operations.InserDataIntoDB(r.Context(), db, URLData)
+			if err != nil {
+				if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
+					http.Error(w, "URL уже существует", http.StatusConflict)
+					return
+				}
+				http.Error(w, "Не удалось записать в базу данных", http.StatusInternalServerError)
+			}
 		} else {
 			operations.InsertDataIntoFile(cfg, URLData)
 		}
