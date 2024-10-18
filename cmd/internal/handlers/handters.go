@@ -61,11 +61,11 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		if db != nil {
 			err := operations.InserDataIntoDB(r.Context(), db, URLData)
 			if err != nil {
-				if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
-					http.Error(w, "URL уже существует", http.StatusConflict)
-					return
-				}
-				http.Error(w, "Не удалось записать в базу данных", http.StatusInternalServerError)
+				// if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
+				// 	http.Error(w, "URL уже существует", http.StatusConflict)
+				// 	return
+				// }
+				http.Error(w, "Не удалось записать в базу данных", http.StatusConflict)
 			}
 		} else {
 			operations.InsertDataIntoFile(cfg, URLData)
@@ -99,11 +99,11 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		if db != nil {
 			err := operations.InserDataIntoDB(r.Context(), db, URLData)
 			if err != nil {
-				if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
-					http.Error(w, "URL уже существует", http.StatusConflict)
-					return
-				}
-				http.Error(w, "Не удалось записать в базу данных", http.StatusInternalServerError)
+				// if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
+				// 	http.Error(w, "URL уже существует", http.StatusConflict)
+				// 	return
+				// }
+				http.Error(w, "Не удалось записать в базу данных", http.StatusConflict)
 			}
 		} else {
 			err := operations.InsertDataIntoFile(cfg, URLData)
