@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/thalq/url-service/cmd/config"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/thalq/url-service/config"
 )
 
 func DBConnect(cfg config.Config) *sql.DB {
@@ -12,7 +13,6 @@ func DBConnect(cfg config.Config) *sql.DB {
 	if err != nil {
 		return nil
 	}
-	// defer db.Close()
 	ctx := context.Background()
 	if err := db.PingContext(ctx); err != nil {
 		return nil
