@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/thalq/url-service/cmd/config"
-	"github.com/thalq/url-service/cmd/internal/files"
-	"github.com/thalq/url-service/cmd/internal/logger"
-	"github.com/thalq/url-service/cmd/internal/models"
-	"github.com/thalq/url-service/cmd/internal/operations"
-	"github.com/thalq/url-service/cmd/internal/shortener"
-	"github.com/thalq/url-service/cmd/internal/structures"
+	"github.com/thalq/url-service/config"
+	"github.com/thalq/url-service/internal/files"
+	"github.com/thalq/url-service/internal/logger"
+	"github.com/thalq/url-service/internal/models"
+	"github.com/thalq/url-service/internal/operations"
+	"github.com/thalq/url-service/internal/shortener"
+	"github.com/thalq/url-service/internal/structures"
 )
 
 func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
@@ -43,33 +44,39 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		newLink := shortener.GenerateShortString(url)
 		logger.Sugar.Infof("Generated short link: %s", newLink)
 
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
+		var URLData = &structures.URLData{
+			CorrelationID: uuid.New().String(),
+			OriginalURL:   url,
+			ShortURL:      newLink,
+		}
+
 		resp.Result = cfg.BaseURL + "/" + newLink
 		response, err := json.Marshal(resp)
 		if err != nil {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 			return
 		}
-		w.Write(response)
 
-		var URLData = &structures.URLData{
-			CorrelationID: uuid.New().String(),
-			OriginalURL:   url,
-			ShortURL:      newLink,
-		}
 		if db != nil {
-			err := operations.InserDataIntoDB(r.Context(), db, URLData)
-			if err != nil {
-				// if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
-				// 	http.Error(w, "URL уже существует", http.StatusConflict)
-				// 	return
-				// }
-				http.Error(w, "Не удалось записать в базу данных", http.StatusConflict)
+			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
+				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
+				w.Header().Set("content-type", "application/json")
+				w.WriteHeader(http.StatusCreated)
+				w.Write(response)
+				return
 			}
+			logger.Sugar.Infoln("Data saved to database")
 		} else {
-			operations.InsertDataIntoFile(cfg, URLData)
+			err := operations.InsertDataIntoFile(cfg, URLData)
+			if err != nil {
+				logger.Sugar.Error(err)
+			}
+			logger.Sugar.Infoln("Data saved to file")
 		}
+
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write(response)
 	}
 }
 
@@ -97,19 +104,20 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 
 		if db != nil {
-			err := operations.InserDataIntoDB(r.Context(), db, URLData)
-			if err != nil {
-				// if err.Error() == `ERROR: duplicate key value violates unique constraint "original_url" (SQLSTATE 23505)` {
-				// 	http.Error(w, "URL уже существует", http.StatusConflict)
-				// 	return
-				// }
-				http.Error(w, "Не удалось записать в базу данных", http.StatusConflict)
+			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
+				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
+				w.Header().Set("Content-Type", "text/plain")
+				w.WriteHeader(http.StatusConflict)
+				w.Write([]byte(cfg.BaseURL + "/" + URLData.ShortURL))
+				return
 			}
+			logger.Sugar.Infoln("Data saved to database")
 		} else {
 			err := operations.InsertDataIntoFile(cfg, URLData)
 			if err != nil {
 				logger.Sugar.Error(err)
 			}
+			logger.Sugar.Infoln("Data saved to file")
 		}
 
 		w.Header().Set("content-type", "text/plain")
@@ -160,37 +168,29 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			})
 		}
 
-		w.Header().Set("content-type", "application/json")
-		w.WriteHeader(http.StatusCreated)
 		response, err := json.Marshal(batchResp)
 		if err != nil {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 			return
 		}
-		w.Write(response)
 
 		if db != nil {
 			logger.Sugar.Infoln("Database connection established")
 			if err := operations.ExecInsertBatchURLs(r.Context(), db, URLDatas); err != nil {
-				logger.Sugar.Fatal(err)
+				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				w.Write(response)
+				return
 			}
 		} else {
-			Producer, err := files.NewProducer(cfg.FileStoragePath)
-			if err != nil {
-				logger.Sugar.Fatal(err)
-			}
-			defer Producer.Close()
-			for _, data := range URLDatas {
-				toFileSaveData := &structures.URLData{
-					CorrelationID: data.CorrelationID,
-					OriginalURL:   data.OriginalURL,
-					ShortURL:      data.ShortURL,
-				}
-				if err := Producer.WriteEvent(toFileSaveData); err != nil {
-					logger.Sugar.Fatal(err)
-				}
+			if err := operations.InsertBatchIntoFile(cfg, URLDatas); err != nil {
+				logger.Sugar.Errorf("Failed to store URL: %v", err)
 			}
 		}
+		w.Header().Set("content-type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write(response)
 	}
 }
 
@@ -199,7 +199,15 @@ func GetHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		shortURL := strings.TrimPrefix(r.URL.Path, "/")
 		logger.Sugar.Infoln("GET: Requested key:", shortURL)
 		if db != nil {
-			operations.GetOriginalURLFromDB(db, shortURL, w, r)
+			URLData, err := operations.GetURLData(r.Context(), db, shortURL)
+			if err != nil {
+				http.Error(w, "ShortURL not found in database", http.StatusNotFound)
+				return
+			}
+			logger.Sugar.Infoln("GET: Original URL from database:", URLData.OriginalURL)
+			w.Header().Set("Location", URLData.OriginalURL)
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			logger.Sugar.Infoln("Temporary Redirect sent for URL:", URLData.OriginalURL)
 		} else {
 			Consumer, err := files.NewConsumer(cfg.FileStoragePath)
 			if err != nil {
