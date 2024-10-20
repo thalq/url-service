@@ -61,7 +61,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
 				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
 				w.Header().Set("content-type", "application/json")
-				w.WriteHeader(http.StatusCreated)
+				w.WriteHeader(http.StatusConflict)
 				w.Write(response)
 				return
 			}
