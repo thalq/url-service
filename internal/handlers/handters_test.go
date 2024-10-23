@@ -12,7 +12,7 @@ import (
 	"github.com/thalq/url-service/config"
 	database "github.com/thalq/url-service/internal/dataBase"
 	"github.com/thalq/url-service/internal/files"
-	"github.com/thalq/url-service/internal/logger"
+	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/shortener"
 	"github.com/thalq/url-service/internal/structures"
 	"go.uber.org/zap"

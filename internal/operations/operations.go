@@ -4,9 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/thalq/url-service/config"
-	"github.com/thalq/url-service/internal/files"
-	"github.com/thalq/url-service/internal/logger"
+	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/structures"
 )
 
@@ -23,9 +21,32 @@ func GetURLData(ctx context.Context, db *sql.DB, URL string) (structures.URLData
 	return URLData, nil
 }
 
+func GetUserURLData(ctx context.Context, db *sql.DB, userId string) ([]structures.ShortURLData, error) {
+	rows, err := db.QueryContext(ctx, "SELECT original_url, short_url FROM urls "+
+		"WHERE user_id = $1", userId)
+	if err != nil {
+		logger.Sugar.Errorf("Failed to get URL: %v from database", err)
+		return nil, err
+	}
+	defer rows.Close()
+	var URLData []structures.ShortURLData
+
+	for rows.Next() {
+		var data structures.ShortURLData
+		err := rows.Scan(&data.OriginalURL, &data.ShortURL)
+		if err != nil {
+			logger.Sugar.Errorf("Failed to get URL: %v from database", err)
+			return nil, err
+		}
+		URLData = append(URLData, data)
+	}
+	logger.Sugar.Infof("Got URLData: %s from database", URLData)
+	return URLData, nil
+}
+
 func InsertURL(ctx context.Context, db *sql.DB, URLData *structures.URLData) error {
-	_, err := db.ExecContext(ctx, "INSERT INTO urls (original_url, short_url, correlation_id) "+
-		"VALUES ($1, $2, $3)", URLData.OriginalURL, URLData.ShortURL, URLData.CorrelationID)
+	_, err := db.ExecContext(ctx, "INSERT INTO urls (original_url, short_url, correlation_id, user_id) "+
+		"VALUES ($1, $2, $3, $4)", URLData.OriginalURL, URLData.ShortURL, URLData.CorrelationID, URLData.UserID)
 	return err
 }
 
@@ -35,14 +56,14 @@ func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*structures.
 		return err
 	}
 	stmt, err := tx.PrepareContext(ctx,
-		"INSERT INTO urls (original_url, short_url, correlation_id) "+
-			"VALUES ($1, $2, $3)")
+		"INSERT INTO urls (original_url, short_url, correlation_id, user_id) "+
+			"VALUES ($1, $2, $3, $4)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, data := range URLData {
-		_, err := stmt.ExecContext(ctx, data.OriginalURL, data.ShortURL, data.CorrelationID)
+		_, err := stmt.ExecContext(ctx, data.OriginalURL, data.ShortURL, data.CorrelationID, data.UserID)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -52,38 +73,5 @@ func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*structures.
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func InsertDataIntoFile(cfg config.Config, URLData *structures.URLData) error {
-	Producer, err := files.NewProducer(cfg.FileStoragePath)
-	if err != nil {
-		logger.Sugar.Error(err)
-	}
-	defer Producer.Close()
-	if err := Producer.WriteEvent(URLData); err != nil {
-		logger.Sugar.Error(err)
-	}
-	logger.Sugar.Infof("URL inserted into file: %s:%s", URLData.OriginalURL, URLData.ShortURL)
-	return nil
-}
-
-func InsertBatchIntoFile(cfg config.Config, URLData []*structures.URLData) error {
-	Producer, err := files.NewProducer(cfg.FileStoragePath)
-	if err != nil {
-		logger.Sugar.Error(err)
-	}
-	defer Producer.Close()
-	for _, data := range URLData {
-		toFileSaveData := &structures.URLData{
-			CorrelationID: data.CorrelationID,
-			OriginalURL:   data.OriginalURL,
-			ShortURL:      data.ShortURL,
-		}
-		if err := Producer.WriteEvent(toFileSaveData); err != nil {
-			logger.Sugar.Errorf("Failed to write data to file: %v", err)
-		}
-	}
-	logger.Sugar.Infoln("Data saved to file")
 	return nil
 }
