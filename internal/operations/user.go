@@ -3,32 +3,26 @@ package operations
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	logger "github.com/thalq/url-service/internal/middleware"
+	"github.com/thalq/url-service/internal/structures"
 )
 
-type Claims struct {
-	jwt.RegisteredClaims
-	UserID string `json:"user_id"`
-}
-
-const TOKEN_EXP = time.Hour * 3
-const SECRET_KEY = "supersecretkey"
+const SecretKey = "supersecretkey"
 
 func GetUserID(r *http.Request) (string, error) {
 	tokenString, err := r.Cookie("token")
 	if err != nil {
 		return "", err
 	}
-	claims := &Claims{}
+	claims := &structures.Claims{}
 	token, err := jwt.ParseWithClaims(tokenString.Value, claims,
 		func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 			}
-			return []byte(SECRET_KEY), nil
+			return []byte(SecretKey), nil
 		})
 	if err != nil {
 		return "", err
