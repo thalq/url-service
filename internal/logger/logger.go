@@ -36,8 +36,8 @@ func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.responseData.status = statusCode // захватываем код статуса
 }
 
-func WithLogging(h http.Handler) http.HandlerFunc {
-	logFn := func(w http.ResponseWriter, r *http.Request) {
+func WithLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
 		responseData := &responseData{
@@ -48,7 +48,7 @@ func WithLogging(h http.Handler) http.HandlerFunc {
 			ResponseWriter: w, // встраиваем оригинальный http.ResponseWriter
 			responseData:   responseData,
 		}
-		h.ServeHTTP(&lw, r) // внедряем реализацию http.ResponseWriter
+		next.ServeHTTP(&lw, r) // внедряем реализацию http.ResponseWriter
 
 		duration := time.Since(start)
 
@@ -59,6 +59,17 @@ func WithLogging(h http.Handler) http.HandlerFunc {
 			"duration", duration,
 			"size", responseData.size, // получаем перехваченный размер ответа
 		)
+	})
+}
+
+var sugar *zap.SugaredLogger
+
+func InitLogger() {
+	loggerInstance, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
 	}
-	return http.HandlerFunc(logFn)
+	defer loggerInstance.Sync()
+	sugar = loggerInstance.Sugar()
+	Sugar = sugar
 }

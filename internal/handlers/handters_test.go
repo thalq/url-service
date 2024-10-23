@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
-	"github.com/thalq/url-service/cmd/config"
-	database "github.com/thalq/url-service/cmd/internal/dataBase"
-	"github.com/thalq/url-service/cmd/internal/files"
-	"github.com/thalq/url-service/cmd/internal/logger"
-	"github.com/thalq/url-service/cmd/internal/shortener"
-	"github.com/thalq/url-service/cmd/internal/structures"
+	"github.com/thalq/url-service/config"
+	database "github.com/thalq/url-service/internal/dataBase"
+	"github.com/thalq/url-service/internal/files"
+	"github.com/thalq/url-service/internal/logger"
+	"github.com/thalq/url-service/internal/shortener"
+	"github.com/thalq/url-service/internal/structures"
 	"go.uber.org/zap"
 )
 

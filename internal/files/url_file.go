@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/thalq/url-service/cmd/internal/structures"
+	"github.com/thalq/url-service/internal/structures"
 )
 
 type Producer struct {
