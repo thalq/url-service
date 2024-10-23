@@ -21,9 +21,9 @@ func GetURLData(ctx context.Context, db *sql.DB, URL string) (structures.URLData
 	return URLData, nil
 }
 
-func GetUserURLData(ctx context.Context, db *sql.DB, userId string) ([]structures.ShortURLData, error) {
+func GetUserURLData(ctx context.Context, db *sql.DB, userID string) ([]structures.ShortURLData, error) {
 	rows, err := db.QueryContext(ctx, "SELECT original_url, short_url FROM urls "+
-		"WHERE user_id = $1", userId)
+		"WHERE user_id = $1", userID)
 	if err != nil {
 		logger.Sugar.Errorf("Failed to get URL: %v from database", err)
 		return nil, err

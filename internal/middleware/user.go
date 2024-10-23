@@ -33,7 +33,7 @@ func generateUserID() (string, error) {
 }
 
 func BuildJWTString() (string, error) {
-	user_id, err := generateUserID()
+	userID, err := generateUserID()
 	if err != nil {
 		return "", err
 	}
@@ -41,7 +41,7 @@ func BuildJWTString() (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TOKEN_EXP)),
 		},
-		UserID: user_id,
+		UserID: userID,
 	})
 
 	tokenString, err := token.SignedString([]byte(SECRET_KEY))

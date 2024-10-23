@@ -40,7 +40,7 @@ func clearCookies(w http.ResponseWriter, r *http.Request) {
 }
 func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := operations.GetUserId(r)
+		userID, err := operations.GetUserID(r)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -74,7 +74,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			CorrelationID: uuid.New().String(),
 			OriginalURL:   url,
 			ShortURL:      newLink,
-			UserID:        userId,
+			UserID:        userID,
 		}
 
 		resp.Result = cfg.BaseURL + "/" + newLink
@@ -109,7 +109,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := operations.GetUserId(r)
+		userID, err := operations.GetUserID(r)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -135,9 +135,8 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			CorrelationID: uuid.New().String(),
 			OriginalURL:   bodyLink,
 			ShortURL:      newLink,
-			UserID:        userId,
+			UserID:        userID,
 		}
-		fmt.Println(userId)
 		if db != nil {
 			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
 				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
@@ -165,7 +164,7 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := operations.GetUserId(r)
+		userID, err := operations.GetUserID(r)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -204,7 +203,7 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				CorrelationID: urlReq.CorrelationID,
 				OriginalURL:   urlReq.OriginalURL,
 				ShortURL:      newLink,
-				UserID:        userId,
+				UserID:        userID,
 			})
 			batchResp = append(batchResp, models.BatchURLResponse{
 				CorrelationID: urlReq.CorrelationID,
@@ -274,7 +273,7 @@ func GetHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := operations.GetUserId(r)
+		userID, err := operations.GetUserID(r)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -282,7 +281,7 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 
 		if db != nil {
-			URLData, err := operations.GetUserURLData(r.Context(), db, userId)
+			URLData, err := operations.GetUserURLData(r.Context(), db, userID)
 			if err != nil {
 				http.Error(w, "ShortURL not found in database", http.StatusNotFound)
 				return
@@ -307,7 +306,7 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				logger.Sugar.Fatal(err)
 			}
 			defer Consumer.Close()
-			URLData, err := Consumer.GetURLsByUser(userId)
+			URLData, err := Consumer.GetURLsByUser(userID)
 			if err != nil {
 				logger.Sugar.Error("No URLs found for user")
 				return

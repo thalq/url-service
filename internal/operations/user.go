@@ -17,7 +17,7 @@ type Claims struct {
 const TOKEN_EXP = time.Hour * 3
 const SECRET_KEY = "supersecretkey"
 
-func GetUserId(r *http.Request) (string, error) {
+func GetUserID(r *http.Request) (string, error) {
 	tokenString, err := r.Cookie("token")
 	if err != nil {
 		return "", err
