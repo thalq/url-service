@@ -86,17 +86,16 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func (c *Consumer) GetURLsByUser(userID string) ([]*structures.ShortURLData, error) {
-	var URLData []*structures.ShortURLData
+func (c *Consumer) GetURLsByUser(userID string) ([]*structures.URLData, error) {
+	var URLData []*structures.URLData
 	for c.scanner.Scan() {
-		var response structures.ShortURLData
 		var data structures.URLData
 		if err := json.Unmarshal(c.scanner.Bytes(), &data); err != nil {
 			return nil, err
 		}
 
 		if data.UserID == userID {
-			URLData = append(URLData, &response)
+			URLData = append(URLData, &data)
 		}
 	}
 
@@ -113,10 +112,16 @@ func InsertDataIntoFile(cfg config.Config, URLData *structures.URLData) error {
 		logger.Sugar.Error(err)
 	}
 	defer Producer.Close()
-	if err := Producer.WriteEvent(URLData); err != nil {
+	toFileSaveData := &structures.URLData{
+		CorrelationID: URLData.CorrelationID,
+		OriginalURL:   URLData.OriginalURL,
+		ShortURL:      URLData.ShortURL,
+		UserID:        URLData.UserID,
+	}
+	if err := Producer.WriteEvent(toFileSaveData); err != nil {
 		logger.Sugar.Error(err)
 	}
-	logger.Sugar.Infof("URL inserted into file: %s:%s", URLData.OriginalURL, URLData.ShortURL, URLData.UserID, URLData.CorrelationID)
+	logger.Sugar.Infof("URL inserted into file: %s:%s", URLData.OriginalURL, URLData.ShortURL)
 	return nil
 }
 

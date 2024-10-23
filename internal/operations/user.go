@@ -22,7 +22,6 @@ func GetUserID(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(tokenString.Value)
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString.Value, claims,
 		func(t *jwt.Token) (interface{}, error) {

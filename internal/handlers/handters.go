@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/thalq/url-service/config"
@@ -20,31 +19,11 @@ import (
 	"github.com/thalq/url-service/internal/structures"
 )
 
-func clearCookies(w http.ResponseWriter, r *http.Request) {
-	// Перебираем все куки
-	for _, cookie := range r.Cookies() {
-		// Устанавливаем куки с истекшим временем жизни
-		expiredCookie := http.Cookie{
-			Name:    cookie.Name,
-			Value:   "",
-			Path:    "/",
-			Expires: time.Unix(0, 0),
-			MaxAge:  -1,
-		}
-		http.SetCookie(w, &expiredCookie)
-		logger.Sugar.Infof("Cookie %s cleared", cookie.Name)
-	}
-
-	// Перенаправляем на главную страницу
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
 func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := operations.GetUserID(r)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
-			w.WriteHeader(http.StatusUnauthorized)
-			return
 		}
 
 		var req models.Request
@@ -112,8 +91,6 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		userID, err := operations.GetUserID(r)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
-			w.WriteHeader(http.StatusUnauthorized)
-			return
 		}
 
 		body, err := io.ReadAll(r.Body)
@@ -167,8 +144,6 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		userID, err := operations.GetUserID(r)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
-			w.WriteHeader(http.StatusUnauthorized)
-			return
 		}
 
 		var batchReq []models.BatchURLRequest
@@ -291,14 +266,21 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
+			var resp []structures.ShortURLData
+			for _, data := range URLData {
+				resp = append(resp, structures.ShortURLData{
+					OriginalURL: data.OriginalURL,
+					ShortURL:    cfg.BaseURL + "/" + data.ShortURL,
+				})
+			}
 			logger.Sugar.Infof("Get %d URLData from database", len(URLData))
-			resp, err := json.Marshal(URLData)
+			response, err := json.Marshal(resp)
 			if err != nil {
 				http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 				return
 			}
 			w.Header().Set("content-type", "application/json")
-			w.Write(resp)
+			w.Write(response)
 			return
 		} else {
 			Consumer, err := files.NewConsumer(cfg.FileStoragePath)
@@ -312,14 +294,22 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				return
 			}
 			logger.Sugar.Infof("Get %d URLData from database", len(URLData))
+
+			var resp []structures.ShortURLData
+			for _, data := range URLData {
+				resp = append(resp, structures.ShortURLData{
+					OriginalURL: data.OriginalURL,
+					ShortURL:    cfg.BaseURL + "/" + data.ShortURL,
+				})
+			}
 			w.WriteHeader(http.StatusTemporaryRedirect)
-			resp, err := json.Marshal(URLData)
+			response, err := json.Marshal(resp)
 			if err != nil {
 				http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 				return
 			}
 			w.Header().Set("content-type", "application/json")
-			w.Write(resp)
+			w.Write(response)
 			return
 		}
 	}
