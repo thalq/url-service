@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thalq/url-service/config"
 	database "github.com/thalq/url-service/internal/dataBase"
-	"github.com/thalq/url-service/internal/files"
-	"github.com/thalq/url-service/internal/logger"
+	logger "github.com/thalq/url-service/internal/middleware"
+	"github.com/thalq/url-service/internal/operations"
 	"github.com/thalq/url-service/internal/shortener"
 	"github.com/thalq/url-service/internal/structures"
 	"go.uber.org/zap"
@@ -97,7 +97,7 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("GET valid URL", func(t *testing.T) {
 		shortURL := shortener.GenerateShortString("https://test.com")
-		Producer, err := files.NewProducer(cfg.FileStoragePath)
+		Producer, err := operations.NewProducer(cfg.FileStoragePath)
 		if err != nil {
 			logger.Sugar.Fatal(err)
 		}
@@ -134,7 +134,7 @@ func TestHandlers(t *testing.T) {
 
 	t.Run("GET valid URL with JSON body", func(t *testing.T) {
 		shortURL := shortener.GenerateShortString("https://test1.com")
-		Producer, err := files.NewProducer(cfg.FileStoragePath)
+		Producer, err := operations.NewProducer(cfg.FileStoragePath)
 		if err != nil {
 			logger.Sugar.Fatal(err)
 		}

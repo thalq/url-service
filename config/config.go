@@ -4,7 +4,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/thalq/url-service/internal/logger"
+	logger "github.com/thalq/url-service/internal/middleware"
 )
 
 type Config struct {

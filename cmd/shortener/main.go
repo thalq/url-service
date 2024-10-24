@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/thalq/url-service/config"
-	"github.com/thalq/url-service/internal/logger"
+	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/routers"
 )
 
