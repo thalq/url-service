@@ -16,14 +16,14 @@ const SecretKey = "supersecretkey"
 func generateUserID() (string, error) {
 	timestamp := time.Now().UnixNano()
 
-	b := make([]byte, 8)
+	b := make([]byte, 5)
 	_, err := rand.Read(b)
 	if err != nil {
 		return "", err
 	}
 
 	userID := fmt.Sprintf("%x-%s", timestamp, hex.EncodeToString(b))
-	return userID[:5], nil
+	return userID, nil
 }
 
 func BuildJWTString() (string, error) {
