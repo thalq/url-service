@@ -16,7 +16,7 @@ func NewRouter(cfg config.Config) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(internalMiddleware.WithLogging)
 	r.Use(internalMiddleware.GzipMiddleware)
-	r.Use(internalMiddleware.CookieMiddleware)
+	// r.Use(internalMiddleware.CookieMiddleware)
 
 	db := database.DBConnect(cfg)
 

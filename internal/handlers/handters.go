@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/thalq/url-service/config"
-	"github.com/thalq/url-service/internal/files"
+	"github.com/thalq/url-service/internal/cookies"
 	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/models"
 	"github.com/thalq/url-service/internal/operations"
@@ -21,7 +21,8 @@ import (
 
 func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
+		tokenString := cookies.GetOrSetCookie(w, r)
+		userID, err := operations.GetUserID(tokenString)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 		}
@@ -65,7 +66,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 		if db != nil {
 			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
-				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
+				logger.Sugar.Error(fmt.Sprintln("Не удалось сделать запись в базу данных"))
 				w.Header().Set("content-type", "application/json")
 				w.WriteHeader(http.StatusConflict)
 				w.Write(response)
@@ -73,7 +74,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			}
 			logger.Sugar.Infoln("Data saved to database")
 		} else {
-			err := files.InsertDataIntoFile(cfg, URLData)
+			err := operations.InsertDataIntoFile(cfg, URLData)
 			if err != nil {
 				logger.Sugar.Error(err)
 			}
@@ -88,10 +89,12 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
+		tokenString := cookies.GetOrSetCookie(w, r)
+		userID, err := operations.GetUserID(tokenString)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 		}
+		fmt.Println("UserID:", userID)
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -116,7 +119,7 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 		if db != nil {
 			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
-				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
+				logger.Sugar.Error(fmt.Sprintln("Не удалось сделать запись в базу данных"))
 				w.Header().Set("Content-Type", "text/plain")
 				w.WriteHeader(http.StatusConflict)
 				w.Write([]byte(cfg.BaseURL + "/" + URLData.ShortURL))
@@ -124,9 +127,9 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			}
 			logger.Sugar.Infoln("Data saved to database")
 		} else {
-			err := files.InsertDataIntoFile(cfg, URLData)
+			err := operations.InsertDataIntoFile(cfg, URLData)
 			if err != nil {
-				logger.Sugar.Error(err)
+				logger.Sugar.Error(fmt.Sprintln("Failed to store URL to file"))
 			}
 			logger.Sugar.Infoln("Data saved to file")
 		}
@@ -141,7 +144,8 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
+		tokenString := cookies.GetOrSetCookie(w, r)
+		userID, err := operations.GetUserID(tokenString)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 		}
@@ -195,15 +199,15 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		if db != nil {
 			logger.Sugar.Infoln("Database connection established")
 			if err := operations.ExecInsertBatchURLs(r.Context(), db, URLDatas); err != nil {
-				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
+				logger.Sugar.Error(fmt.Sprintln("Не удалось сделать запись в базу данных"))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusConflict)
 				w.Write(response)
 				return
 			}
 		} else {
-			if err := files.InsertBatchIntoFile(cfg, URLDatas); err != nil {
-				logger.Sugar.Errorf("Failed to store URL: %v", err)
+			if err := operations.InsertBatchIntoFile(cfg, URLDatas); err != nil {
+				logger.Sugar.Errorln("Failed to store URL to file")
 			}
 		}
 		w.Header().Set("content-type", "application/json")
@@ -215,40 +219,41 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 func GetHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortURL := strings.TrimPrefix(r.URL.Path, "/")
-		logger.Sugar.Infoln("GET: Requested key:", shortURL)
+		logger.Sugar.Infoln("GET: Поиск по ключу:", shortURL)
 		if db != nil {
 			URLData, err := operations.GetURLData(r.Context(), db, shortURL)
 			if err != nil {
-				http.Error(w, "ShortURL not found in database", http.StatusNotFound)
+				http.Error(w, "ShortURL не найден в базе данных", http.StatusNotFound)
 				return
 			}
-			logger.Sugar.Infoln("GET: Original URL from database:", URLData.OriginalURL)
+			logger.Sugar.Infoln("GET: Найден OriginalURL:", URLData.OriginalURL)
 			w.Header().Set("Location", URLData.OriginalURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
-			logger.Sugar.Infoln("Temporary Redirect sent for URL:", URLData.OriginalURL)
+			logger.Sugar.Infoln("Запрос перенаправлен на URL:", URLData.OriginalURL)
 		} else {
-			Consumer, err := files.NewConsumer(cfg.FileStoragePath)
+			Consumer, err := operations.NewConsumer(cfg.FileStoragePath)
 			if err != nil {
 				logger.Sugar.Fatal(err)
 			}
 			defer Consumer.Close()
 			OriginalURL, err := Consumer.GetURL(shortURL)
 			if err != nil {
-				logger.Sugar.Error("ShortURL not found in file")
+				logger.Sugar.Error("ShortURL не найден в файле")
 				http.Error(w, "ShortURL not found", http.StatusNotFound)
 				return
 			}
-			logger.Sugar.Infoln("GET: Original URL from file:", OriginalURL)
+			logger.Sugar.Infoln("GET: Original URL из файла:", OriginalURL)
 			w.Header().Set("Location", OriginalURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
-			logger.Sugar.Infoln("Temporary Redirect sent for URL:", OriginalURL)
+			logger.Sugar.Infoln("Запрос перенаправлен на URL:", OriginalURL)
 		}
 	}
 }
 
 func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
+		tokenString := cookies.GetOrSetCookie(w, r)
+		userID, err := operations.GetUserID(tokenString)
 		if err != nil {
 			logger.Sugar.Error("Не удалось получить ID пользователя")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -262,7 +267,7 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				return
 			}
 			if len(URLData) == 0 {
-				logger.Sugar.Info("No URLs found for user")
+				logger.Sugar.Info("Не найдено записей для данного пользователя")
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
@@ -283,7 +288,7 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			w.Write(response)
 			return
 		} else {
-			Consumer, err := files.NewConsumer(cfg.FileStoragePath)
+			Consumer, err := operations.NewConsumer(cfg.FileStoragePath)
 			if err != nil {
 				logger.Sugar.Fatal(err)
 			}
@@ -302,7 +307,6 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 					ShortURL:    cfg.BaseURL + "/" + data.ShortURL,
 				})
 			}
-			w.WriteHeader(http.StatusTemporaryRedirect)
 			response, err := json.Marshal(resp)
 			if err != nil {
 				http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)

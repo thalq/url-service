@@ -2,7 +2,6 @@ package operations
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/golang-jwt/jwt/v4"
 	logger "github.com/thalq/url-service/internal/middleware"
@@ -11,13 +10,9 @@ import (
 
 const SecretKey = "supersecretkey"
 
-func GetUserID(r *http.Request) (string, error) {
-	tokenString, err := r.Cookie("token")
-	if err != nil {
-		return "", err
-	}
+func GetUserID(tokenString string) (string, error) {
 	claims := &structures.Claims{}
-	token, err := jwt.ParseWithClaims(tokenString.Value, claims,
+	token, err := jwt.ParseWithClaims(tokenString, claims,
 		func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
