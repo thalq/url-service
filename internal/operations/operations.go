@@ -40,6 +40,12 @@ func GetUserURLData(ctx context.Context, db *sql.DB, userID string) ([]structure
 		}
 		URLData = append(URLData, data)
 	}
+
+	if err = rows.Err(); err != nil {
+		logger.Sugar.Errorf("Failed to iterate over rows: %v", err)
+		return nil, err
+	}
+
 	logger.Sugar.Infof("Got URLData: %s from database", URLData)
 	return URLData, nil
 }
