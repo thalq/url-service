@@ -284,7 +284,7 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			}
 			if len(URLData) == 0 {
 				logger.Sugar.Infof("No URLs found for user %s", userID)
-				w.WriteHeader(http.StatusNoContent)
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 			var resp []structures.ShortURLData
