@@ -2,15 +2,18 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/thalq/url-service/config"
+	"github.com/thalq/url-service/internal/constants"
 	"github.com/thalq/url-service/internal/files"
 	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/models"
@@ -21,15 +24,19 @@ import (
 
 func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
-		if err != nil {
-			logger.Sugar.Error("Не удалось получить ID пользователя")
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		userID, ok := ctx.Value(constants.UserIDKey).(string)
+		if !ok {
+			http.Error(w, "User ID not found", http.StatusUnauthorized)
+			return
 		}
 
 		var req models.Request
 		var resp models.Response
 		var buf bytes.Buffer
-		_, err = buf.ReadFrom(r.Body)
+		_, err := buf.ReadFrom(r.Body)
 		if err != nil {
 			http.Error(w, "Не удалось прочитать тело запроса", http.StatusBadRequest)
 			return
@@ -64,7 +71,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 
 		if db != nil {
-			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
+			if err := operations.InsertURL(ctx, db, URLData); err != nil {
 				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
 				w.Header().Set("content-type", "application/json")
 				w.WriteHeader(http.StatusConflict)
@@ -88,9 +95,13 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
-		if err != nil {
-			logger.Sugar.Error("Не удалось получить ID пользователя")
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		userID, ok := ctx.Value(constants.UserIDKey).(string)
+		if !ok {
+			http.Error(w, "User ID not found", http.StatusUnauthorized)
+			return
 		}
 
 		body, err := io.ReadAll(r.Body)
@@ -115,7 +126,7 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			UserID:        userID,
 		}
 		if db != nil {
-			if err := operations.InsertURL(r.Context(), db, URLData); err != nil {
+			if err := operations.InsertURL(ctx, db, URLData); err != nil {
 				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
 				w.Header().Set("Content-Type", "text/plain")
 				w.WriteHeader(http.StatusConflict)
@@ -141,9 +152,13 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
-		if err != nil {
-			logger.Sugar.Error("Не удалось получить ID пользователя")
+		ctx, cancel := context.WithTimeout(r.Context(), 100*time.Second)
+		defer cancel()
+
+		userID, ok := ctx.Value(constants.UserIDKey).(string)
+		if !ok {
+			http.Error(w, "User ID not found", http.StatusUnauthorized)
+			return
 		}
 
 		var batchReq []models.BatchURLRequest
@@ -151,7 +166,7 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		var URLDatas []*structures.URLData
 		var buf bytes.Buffer
 
-		_, err = buf.ReadFrom(r.Body)
+		_, err := buf.ReadFrom(r.Body)
 		if err != nil {
 			http.Error(w, "Не удалось прочитать тело запроса", http.StatusBadRequest)
 			return
@@ -191,10 +206,9 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Не удалось записать ответ", http.StatusInternalServerError)
 			return
 		}
-
 		if db != nil {
 			logger.Sugar.Infoln("Database connection established")
-			if err := operations.ExecInsertBatchURLs(r.Context(), db, URLDatas); err != nil {
+			if err := operations.ExecInsertBatchURLs(ctx, db, URLDatas); err != nil {
 				logger.Sugar.Error(fmt.Sprintf("Failed to store URL: %v", err))
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusConflict)
@@ -214,10 +228,13 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func GetHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
 		shortURL := strings.TrimPrefix(r.URL.Path, "/")
 		logger.Sugar.Infoln("GET: Requested key:", shortURL)
 		if db != nil {
-			URLData, err := operations.GetURLData(r.Context(), db, shortURL)
+			URLData, err := operations.GetURLData(ctx, db, shortURL)
 			if err != nil {
 				http.Error(w, "ShortURL not found in database", http.StatusNotFound)
 				return
@@ -248,21 +265,25 @@ func GetHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := operations.GetUserID(r)
-		if err != nil {
-			logger.Sugar.Error("Не удалось получить ID пользователя")
-			w.WriteHeader(http.StatusUnauthorized)
+		ctx, cancel := context.WithTimeout(r.Context(), 100*time.Second)
+		defer cancel()
+
+		userID, ok := ctx.Value(constants.UserIDKey).(string)
+
+		fmt.Println("UserID: ", userID)
+		if !ok {
+			http.Error(w, "User ID not found", http.StatusUnauthorized)
 			return
 		}
 
 		if db != nil {
-			URLData, err := operations.GetUserURLData(r.Context(), db, userID)
+			URLData, err := operations.GetUserURLData(ctx, db, userID)
 			if err != nil {
 				http.Error(w, "ShortURL not found in database", http.StatusNotFound)
 				return
 			}
 			if len(URLData) == 0 {
-				logger.Sugar.Info("No URLs found for user")
+				logger.Sugar.Infof("No URLs found for user %s", userID)
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
