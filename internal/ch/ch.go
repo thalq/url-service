@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"sync"
 
+	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/models"
 	"github.com/thalq/url-service/internal/operations"
 )
@@ -38,4 +39,33 @@ func Generate(urlsToDelete ...models.ChDelete) chan models.ChDelete {
 	}()
 
 	return outCh
+}
+
+func DeleteURLData(ctx context.Context, db *sql.DB, UrlsToDelete ...models.ChDelete) {
+	tx, err := db.Begin()
+	if err != nil {
+		logger.Sugar.Fatalf("Failed to start transaction: %v", err)
+	}
+	userChan := Generate(UrlsToDelete...)
+	results := FanIn(ctx, db, userChan, tx)
+
+	hasErrors := false
+	for err := range results {
+		if err != nil {
+			hasErrors = true
+			logger.Sugar.Infof("Error occurred: %v", err)
+		}
+	}
+
+	if hasErrors {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			logger.Sugar.Infof("tx rollback error: %v", rollbackErr)
+		}
+		logger.Sugar.Infof("Transaction rolled back due to errors")
+	} else {
+		if commitErr := tx.Commit(); commitErr != nil {
+			logger.Sugar.Infof("tx commit error: %v", commitErr)
+		}
+		logger.Sugar.Infoln("Transaction committed successfully")
+	}
 }

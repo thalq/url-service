@@ -388,32 +388,7 @@ func DeleteByList(cfg config.Config, db *sql.DB) http.HandlerFunc {
 					ShortURL: shortURL,
 				})
 			}
-			tx, err := db.Begin()
-			if err != nil {
-				logger.Sugar.Fatalf("Failed to start transaction: %v", err)
-			}
-			userChan := ch.Generate(UrlsToDelete...)
-			results := ch.FanIn(ctx, db, userChan, tx)
-
-			hasErrors := false
-			for err := range results {
-				if err != nil {
-					hasErrors = true
-					logger.Sugar.Infof("Error occurred: %v", err)
-				}
-			}
-
-			if hasErrors {
-				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					logger.Sugar.Infof("tx rollback error: %v", rollbackErr)
-				}
-				logger.Sugar.Infof("Transaction rolled back due to errors")
-			} else {
-				if commitErr := tx.Commit(); commitErr != nil {
-					logger.Sugar.Infof("tx commit error: %v", commitErr)
-				}
-				logger.Sugar.Infoln("Transaction committed successfully")
-			}
+			ch.DeleteURLData(ctx, db, UrlsToDelete...)
 
 			logger.Sugar.Infoln("Data deleted from database")
 		}

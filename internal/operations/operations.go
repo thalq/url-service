@@ -82,31 +82,6 @@ func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*models.URLD
 	return nil
 }
 
-func DeleteURLs(ctx context.Context, db *sql.DB, userId string, shortURLs []string) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	stmt, err := tx.PrepareContext(ctx,
-		"UPDATE urls SET is_deleted = true WHERE short_url = $1 AND user_id = $2")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-	for _, shortURL := range shortURLs {
-		_, err := stmt.ExecContext(ctx, shortURL, userId)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func UpdateURLData(ctx context.Context, DeleteURLs <-chan models.ChDelete, results chan<- error, tx *sql.Tx) {
 	for DeleteURL := range DeleteURLs {
 		_, err := tx.ExecContext(ctx, "UPDATE urls SET is_deleted = true WHERE short_url = $1 AND user_id = $2", DeleteURL.ShortURL, DeleteURL.UserID)
