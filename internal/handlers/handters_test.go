@@ -12,7 +12,7 @@ import (
 	"github.com/thalq/url-service/config"
 	database "github.com/thalq/url-service/internal/dataBase"
 	"github.com/thalq/url-service/internal/files"
-	"github.com/thalq/url-service/internal/logger"
+	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/shortener"
 	"github.com/thalq/url-service/internal/structures"
 	"go.uber.org/zap"
@@ -40,11 +40,15 @@ func TestHandlers(t *testing.T) {
 	db := database.DBConnect(cfg)
 
 	r := chi.NewRouter()
+	r.Use(logger.WithLogging)
+	r.Use(logger.GzipMiddleware)
+	r.Use(logger.CookieMiddleware)
+
 	r.Route("/", func(r chi.Router) {
-		r.Post("/", http.HandlerFunc(PostHandler(cfg, db)))
-		r.Post("/api/shorten", http.HandlerFunc(PostBodyHandler(cfg, db)))
-		r.Post("/api/shorten/batch", http.HandlerFunc(PostBatchHandler(cfg, db)))
-		r.Get("/*", http.HandlerFunc(GetHandler(cfg, db)))
+		r.Post("/", PostHandler(cfg, db))
+		r.Post("/api/shorten", PostBodyHandler(cfg, db))
+		r.Post("/api/shorten/batch", PostBatchHandler(cfg, db))
+		r.Get("/*", GetHandler(cfg, db))
 	})
 
 	t.Run("POST valid URL", func(t *testing.T) {

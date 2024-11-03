@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/thalq/url-service/config"
+	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/structures"
 )
 
@@ -82,4 +84,64 @@ func (c *Consumer) GetURL(shortURL string) (string, error) {
 
 func (c *Consumer) Close() error {
 	return c.file.Close()
+}
+
+func (c *Consumer) GetURLsByUser(userID string) ([]*structures.URLData, error) {
+	var URLData []*structures.URLData
+	for c.scanner.Scan() {
+		var data structures.URLData
+		if err := json.Unmarshal(c.scanner.Bytes(), &data); err != nil {
+			return nil, err
+		}
+
+		if data.UserID == userID {
+			URLData = append(URLData, &data)
+		}
+	}
+
+	if err := c.scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return URLData, nil
+}
+
+func InsertDataIntoFile(cfg config.Config, URLData *structures.URLData) error {
+	Producer, err := NewProducer(cfg.FileStoragePath)
+	if err != nil {
+		logger.Sugar.Error(err)
+	}
+	defer Producer.Close()
+	toFileSaveData := &structures.URLData{
+		CorrelationID: URLData.CorrelationID,
+		OriginalURL:   URLData.OriginalURL,
+		ShortURL:      URLData.ShortURL,
+		UserID:        URLData.UserID,
+	}
+	if err := Producer.WriteEvent(toFileSaveData); err != nil {
+		logger.Sugar.Error(err)
+	}
+	logger.Sugar.Infof("URL inserted into file: %s:%s", URLData.OriginalURL, URLData.ShortURL)
+	return nil
+}
+
+func InsertBatchIntoFile(cfg config.Config, URLData []*structures.URLData) error {
+	Producer, err := NewProducer(cfg.FileStoragePath)
+	if err != nil {
+		logger.Sugar.Error(err)
+	}
+	defer Producer.Close()
+	for _, data := range URLData {
+		toFileSaveData := &structures.URLData{
+			CorrelationID: data.CorrelationID,
+			OriginalURL:   data.OriginalURL,
+			ShortURL:      data.ShortURL,
+			UserID:        data.UserID,
+		}
+		if err := Producer.WriteEvent(toFileSaveData); err != nil {
+			logger.Sugar.Errorf("Failed to write data to file: %v", err)
+		}
+	}
+	logger.Sugar.Infoln("Data saved to file")
+	return nil
 }
