@@ -13,8 +13,8 @@ import (
 	database "github.com/thalq/url-service/internal/dataBase"
 	"github.com/thalq/url-service/internal/files"
 	logger "github.com/thalq/url-service/internal/middleware"
+	"github.com/thalq/url-service/internal/models"
 	"github.com/thalq/url-service/internal/shortener"
-	"github.com/thalq/url-service/internal/structures"
 	"go.uber.org/zap"
 )
 
@@ -106,7 +106,7 @@ func TestHandlers(t *testing.T) {
 			logger.Sugar.Fatal(err)
 		}
 		defer Producer.Close()
-		var URLData = &structures.URLData{
+		var URLData = &models.URLData{
 			OriginalURL: "https://test.com",
 			ShortURL:    shortURL,
 		}
@@ -143,7 +143,7 @@ func TestHandlers(t *testing.T) {
 			logger.Sugar.Fatal(err)
 		}
 		defer Producer.Close()
-		var URLData = &structures.URLData{
+		var URLData = &models.URLData{
 			OriginalURL: "https://test1.com",
 			ShortURL:    shortURL,
 		}

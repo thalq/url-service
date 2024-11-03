@@ -8,7 +8,7 @@ import (
 
 	"github.com/thalq/url-service/config"
 	logger "github.com/thalq/url-service/internal/middleware"
-	"github.com/thalq/url-service/internal/structures"
+	"github.com/thalq/url-service/internal/models"
 )
 
 type Producer struct {
@@ -27,7 +27,7 @@ func NewProducer(filename string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) WriteEvent(URLData *structures.URLData) error {
+func (p *Producer) WriteEvent(URLData *models.URLData) error {
 	data, err := json.Marshal(&URLData)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func NewConsumer(filename string) (*Consumer, error) {
 
 func (c *Consumer) GetURL(shortURL string) (string, error) {
 	for c.scanner.Scan() {
-		var data structures.URLData
+		var data models.URLData
 		if err := json.Unmarshal(c.scanner.Bytes(), &data); err != nil {
 			return "", err
 		}
@@ -86,10 +86,10 @@ func (c *Consumer) Close() error {
 	return c.file.Close()
 }
 
-func (c *Consumer) GetURLsByUser(userID string) ([]*structures.URLData, error) {
-	var URLData []*structures.URLData
+func (c *Consumer) GetURLsByUser(userID string) ([]*models.URLData, error) {
+	var URLData []*models.URLData
 	for c.scanner.Scan() {
-		var data structures.URLData
+		var data models.URLData
 		if err := json.Unmarshal(c.scanner.Bytes(), &data); err != nil {
 			return nil, err
 		}
@@ -106,13 +106,13 @@ func (c *Consumer) GetURLsByUser(userID string) ([]*structures.URLData, error) {
 	return URLData, nil
 }
 
-func InsertDataIntoFile(cfg config.Config, URLData *structures.URLData) error {
+func InsertDataIntoFile(cfg config.Config, URLData *models.URLData) error {
 	Producer, err := NewProducer(cfg.FileStoragePath)
 	if err != nil {
 		logger.Sugar.Error(err)
 	}
 	defer Producer.Close()
-	toFileSaveData := &structures.URLData{
+	toFileSaveData := &models.URLData{
 		CorrelationID: URLData.CorrelationID,
 		OriginalURL:   URLData.OriginalURL,
 		ShortURL:      URLData.ShortURL,
@@ -125,14 +125,14 @@ func InsertDataIntoFile(cfg config.Config, URLData *structures.URLData) error {
 	return nil
 }
 
-func InsertBatchIntoFile(cfg config.Config, URLData []*structures.URLData) error {
+func InsertBatchIntoFile(cfg config.Config, URLData []*models.URLData) error {
 	Producer, err := NewProducer(cfg.FileStoragePath)
 	if err != nil {
 		logger.Sugar.Error(err)
 	}
 	defer Producer.Close()
 	for _, data := range URLData {
-		toFileSaveData := &structures.URLData{
+		toFileSaveData := &models.URLData{
 			CorrelationID: data.CorrelationID,
 			OriginalURL:   data.OriginalURL,
 			ShortURL:      data.ShortURL,

@@ -5,14 +5,14 @@ import (
 	"database/sql"
 
 	logger "github.com/thalq/url-service/internal/middleware"
-	"github.com/thalq/url-service/internal/structures"
+	"github.com/thalq/url-service/internal/models"
 )
 
-func GetURLData(ctx context.Context, db *sql.DB, URL string) (structures.URLData, error) {
-	row := db.QueryRowContext(ctx, "SELECT original_url, short_url, correlation_id FROM urls "+
+func GetURLData(ctx context.Context, db *sql.DB, URL string) (models.URLData, error) {
+	row := db.QueryRowContext(ctx, "SELECT original_url, short_url, correlation_id, is_deleted FROM urls "+
 		"WHERE short_url = $1 OR original_url = $1", URL)
-	var URLData structures.URLData
-	err := row.Scan(&URLData.OriginalURL, &URLData.ShortURL, &URLData.CorrelationID)
+	var URLData models.URLData
+	err := row.Scan(&URLData.OriginalURL, &URLData.ShortURL, &URLData.CorrelationID, &URLData.DeletedFlag)
 	if err != nil {
 		logger.Sugar.Errorf("Failed to get URL: %v from database", err)
 		return URLData, err
@@ -21,7 +21,7 @@ func GetURLData(ctx context.Context, db *sql.DB, URL string) (structures.URLData
 	return URLData, nil
 }
 
-func GetUserURLData(ctx context.Context, db *sql.DB, userID string) ([]structures.ShortURLData, error) {
+func GetUserURLData(ctx context.Context, db *sql.DB, userID string) ([]models.ShortURLData, error) {
 	rows, err := db.QueryContext(ctx, "SELECT original_url, short_url FROM urls "+
 		"WHERE user_id = $1", userID)
 	if err != nil {
@@ -29,10 +29,10 @@ func GetUserURLData(ctx context.Context, db *sql.DB, userID string) ([]structure
 		return nil, err
 	}
 	defer rows.Close()
-	var URLData []structures.ShortURLData
+	var URLData []models.ShortURLData
 
 	for rows.Next() {
-		var data structures.ShortURLData
+		var data models.ShortURLData
 		err := rows.Scan(&data.OriginalURL, &data.ShortURL)
 		if err != nil {
 			logger.Sugar.Errorf("Failed to get URL: %v from database", err)
@@ -50,13 +50,13 @@ func GetUserURLData(ctx context.Context, db *sql.DB, userID string) ([]structure
 	return URLData, nil
 }
 
-func InsertURL(ctx context.Context, db *sql.DB, URLData *structures.URLData) error {
+func InsertURL(ctx context.Context, db *sql.DB, URLData *models.URLData) error {
 	_, err := db.ExecContext(ctx, "INSERT INTO urls (original_url, short_url, correlation_id, user_id) "+
 		"VALUES ($1, $2, $3, $4)", URLData.OriginalURL, URLData.ShortURL, URLData.CorrelationID, URLData.UserID)
 	return err
 }
 
-func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*structures.URLData) error {
+func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*models.URLData) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -80,4 +80,12 @@ func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*structures.
 		return err
 	}
 	return nil
+}
+
+func UpdateURLData(ctx context.Context, DeleteURLs <-chan models.ChDelete, results chan<- error, tx *sql.Tx) {
+	for DeleteURL := range DeleteURLs {
+		_, err := tx.ExecContext(ctx, "UPDATE urls SET is_deleted = true WHERE short_url = $1 AND user_id = $2", DeleteURL.ShortURL, DeleteURL.UserID)
+		results <- err
+		logger.Sugar.Infof("Updated URL: %s", DeleteURL.ShortURL)
+	}
 }

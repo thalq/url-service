@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	logger "github.com/thalq/url-service/internal/middleware"
-	"github.com/thalq/url-service/internal/structures"
+	"github.com/thalq/url-service/internal/models"
 )
 
 const SecretKey = "supersecretkey"
@@ -16,7 +16,7 @@ func GetUserID(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	claims := &structures.Claims{}
+	claims := &models.Claims{}
 	token, err := jwt.ParseWithClaims(tokenString.Value, claims,
 		func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
