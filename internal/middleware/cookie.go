@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt"
 	"github.com/thalq/url-service/internal/constants"
-	"github.com/thalq/url-service/internal/structures"
+	"github.com/thalq/url-service/internal/models"
 )
 
 func SetTokenIntoCookie(w http.ResponseWriter, tokenstring string) {
@@ -26,7 +26,7 @@ func CookieMiddleware(next http.Handler) http.Handler {
 
 		tokenString, err := r.Cookie("token")
 		if err == nil {
-			claims := &structures.Claims{}
+			claims := &models.Claims{}
 			token, err := jwt.ParseWithClaims(tokenString.Value, claims,
 				func(t *jwt.Token) (interface{}, error) {
 					if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {

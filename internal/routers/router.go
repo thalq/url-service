@@ -27,6 +27,7 @@ func NewRouter(cfg config.Config) http.Handler {
 		r.Get("/api/user/urls", handlers.GetByUserHandler(cfg, db))
 		r.Get("/*", handlers.GetHandler(cfg, db))
 		r.Get("/ping", handlers.GetPingHandler(cfg, db))
+		r.Delete("/api/user/urls", handlers.DeleteByList(cfg, db))
 	})
 	return r
 }

@@ -13,13 +13,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/thalq/url-service/config"
+	"github.com/thalq/url-service/internal/ch"
 	"github.com/thalq/url-service/internal/constants"
 	"github.com/thalq/url-service/internal/files"
 	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/models"
 	"github.com/thalq/url-service/internal/operations"
 	"github.com/thalq/url-service/internal/shortener"
-	"github.com/thalq/url-service/internal/structures"
 )
 
 func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
@@ -56,7 +56,7 @@ func PostBodyHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		newLink := shortener.GenerateShortString(url)
 		logger.Sugar.Infof("Generated short link: %s", newLink)
 
-		var URLData = &structures.URLData{
+		var URLData = &models.URLData{
 			CorrelationID: uuid.New().String(),
 			OriginalURL:   url,
 			ShortURL:      newLink,
@@ -119,7 +119,7 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 		newLink := shortener.GenerateShortString(bodyLink)
 
-		var URLData = &structures.URLData{
+		var URLData = &models.URLData{
 			CorrelationID: uuid.New().String(),
 			OriginalURL:   bodyLink,
 			ShortURL:      newLink,
@@ -163,7 +163,7 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 
 		var batchReq []models.BatchURLRequest
 		var batchResp []models.BatchURLResponse
-		var URLDatas []*structures.URLData
+		var URLDatas []*models.URLData
 		var buf bytes.Buffer
 
 		_, err := buf.ReadFrom(r.Body)
@@ -189,7 +189,7 @@ func PostBatchHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				urlReq.CorrelationID = uuid.New().String()
 			}
 
-			URLDatas = append(URLDatas, &structures.URLData{
+			URLDatas = append(URLDatas, &models.URLData{
 				CorrelationID: urlReq.CorrelationID,
 				OriginalURL:   urlReq.OriginalURL,
 				ShortURL:      newLink,
@@ -239,10 +239,15 @@ func GetHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 				http.Error(w, "ShortURL not found in database", http.StatusNotFound)
 				return
 			}
-			logger.Sugar.Infoln("GET: Original URL from database:", URLData.OriginalURL)
-			w.Header().Set("Location", URLData.OriginalURL)
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			logger.Sugar.Infoln("Temporary Redirect sent for URL:", URLData.OriginalURL)
+			if URLData.DeletedFlag {
+				logger.Sugar.Infoln("ShortURL is deleted")
+				w.WriteHeader(http.StatusGone)
+			} else {
+				logger.Sugar.Infoln("GET: Original URL from database:", URLData.OriginalURL)
+				w.Header().Set("Location", URLData.OriginalURL)
+				w.WriteHeader(http.StatusTemporaryRedirect)
+				logger.Sugar.Infoln("Temporary Redirect sent for URL:", URLData.OriginalURL)
+			}
 		} else {
 			Consumer, err := files.NewConsumer(cfg.FileStoragePath)
 			if err != nil {
@@ -284,12 +289,12 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			}
 			if len(URLData) == 0 {
 				logger.Sugar.Infof("No URLs found for user %s", userID)
-				w.WriteHeader(http.StatusUnauthorized)
+				w.WriteHeader(http.StatusUnauthorized) // а надо бы 204 No Content
 				return
 			}
-			var resp []structures.ShortURLData
+			var resp []models.ShortURLData
 			for _, data := range URLData {
-				resp = append(resp, structures.ShortURLData{
+				resp = append(resp, models.ShortURLData{
 					OriginalURL: data.OriginalURL,
 					ShortURL:    cfg.BaseURL + "/" + data.ShortURL,
 				})
@@ -316,9 +321,9 @@ func GetByUserHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			}
 			logger.Sugar.Infof("Get %d URLData from database", len(URLData))
 
-			var resp []structures.ShortURLData
+			var resp []models.ShortURLData
 			for _, data := range URLData {
-				resp = append(resp, structures.ShortURLData{
+				resp = append(resp, models.ShortURLData{
 					OriginalURL: data.OriginalURL,
 					ShortURL:    cfg.BaseURL + "/" + data.ShortURL,
 				})
@@ -345,5 +350,72 @@ func GetPingHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 		}
 		logger.Sugar.Infoln("Database connection established")
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func DeleteByList(cfg config.Config, db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+
+		userID, ok := ctx.Value(constants.UserIDKey).(string)
+		if !ok {
+			http.Error(w, "User ID not found", http.StatusUnauthorized)
+			return
+		}
+
+		var req models.DeleteRequest
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Не удалось прочитать тело запроса", http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+
+		logger.Sugar.Infof("Got request: %s", string(body))
+		if err := json.Unmarshal(body, &req.ShortURLs); err != nil {
+			http.Error(w, "Не удалось распарсить JSON", http.StatusBadRequest)
+			return
+		}
+		logger.Sugar.Infof("Parsed request: %v", req)
+		w.WriteHeader(http.StatusAccepted)
+
+		if db != nil {
+			var UrlsToDelete []models.ChDelete
+			for _, shortURL := range req.ShortURLs {
+				UrlsToDelete = append(UrlsToDelete, models.ChDelete{
+					UserID:   userID,
+					ShortURL: shortURL,
+				})
+			}
+			tx, err := db.Begin()
+			if err != nil {
+				logger.Sugar.Fatalf("Failed to start transaction: %v", err)
+			}
+			userChan := ch.Generate(UrlsToDelete...)
+			results := ch.FanIn(ctx, db, userChan, tx)
+
+			hasErrors := false
+			for err := range results {
+				if err != nil {
+					hasErrors = true
+					logger.Sugar.Infof("Error occurred: %v", err)
+				}
+			}
+
+			if hasErrors {
+				if rollbackErr := tx.Rollback(); rollbackErr != nil {
+					logger.Sugar.Infof("tx rollback error: %v", rollbackErr)
+				}
+				logger.Sugar.Infof("Transaction rolled back due to errors")
+			} else {
+				if commitErr := tx.Commit(); commitErr != nil {
+					logger.Sugar.Infof("tx commit error: %v", commitErr)
+				}
+				logger.Sugar.Infoln("Transaction committed successfully")
+			}
+
+			logger.Sugar.Infoln("Data deleted from database")
+		}
 	}
 }
