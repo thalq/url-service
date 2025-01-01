@@ -62,14 +62,11 @@ func WithLogging(next http.Handler) http.Handler {
 	})
 }
 
-var sugar *zap.SugaredLogger
-
 func InitLogger() {
 	loggerInstance, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
 	defer loggerInstance.Sync()
-	sugar = loggerInstance.Sugar()
-	Sugar = sugar
+	Sugar = loggerInstance.Sugar()
 }

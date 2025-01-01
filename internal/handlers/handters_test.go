@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -160,4 +161,9 @@ func TestHandlers(t *testing.T) {
 		assert.Equal(t, http.StatusTemporaryRedirect, rec.Code)
 		assert.Equal(t, "https://test1.com", rec.Header().Get("Location"))
 	})
+
+	err := os.Remove("./url_data.log")
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("Failed to remove file: %v", err)
+	}
 }

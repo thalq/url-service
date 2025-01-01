@@ -3,6 +3,7 @@ module github.com/thalq/url-service
 go 1.22.5
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/go-chi/chi v1.5.5
 	github.com/go-resty/resty/v2 v2.14.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
