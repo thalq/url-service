@@ -103,7 +103,10 @@ func PostHandler(cfg config.Config, db *sql.DB) http.HandlerFunc {
 			http.Error(w, "User ID not found", http.StatusUnauthorized)
 			return
 		}
-
+		if r.Body == nil {
+			http.Error(w, "Empty body", http.StatusBadRequest)
+			return
+		}
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Не удалось прочитать тело запроса", http.StatusInternalServerError)
