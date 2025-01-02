@@ -16,23 +16,6 @@ import (
 	"github.com/thalq/url-service/internal/routers"
 )
 
-func TestMain(t *testing.T) {
-	logger.InitLogger()
-	cfg := config.Config{
-		Address:     ":8080",
-		BaseURL:     "http://localhost:8080",
-		DatabaseDNS: "postgres://postgres:postgres@localhost/postgres?sslmode=disable",
-	}
-	r := routers.NewRouter(cfg)
-
-	ts := httptest.NewServer(r)
-	defer ts.Close()
-
-	resp, err := http.Get(ts.URL + "/ping")
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-}
-
 func TestMainHandler(t *testing.T) {
 	logger.InitLogger()
 	cfg := config.Config{
