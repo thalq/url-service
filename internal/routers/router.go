@@ -2,6 +2,7 @@ package routers
 
 import (
 	"net/http"
+	"net/http/pprof"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -28,6 +29,19 @@ func NewRouter(cfg config.Config) http.Handler {
 		r.Get("/*", handlers.GetHandler(cfg, db))
 		r.Get("/ping", handlers.GetPingHandler(cfg, db))
 		r.Delete("/api/user/urls", handlers.DeleteByList(cfg, db))
+	})
+	r.Route("/debug/pprof", func(r chi.Router) {
+		r.HandleFunc("/", pprof.Index)
+		r.HandleFunc("/cmdline", pprof.Cmdline)
+		r.HandleFunc("/profile", pprof.Profile)
+		r.HandleFunc("/symbol", pprof.Symbol)
+		r.HandleFunc("/trace", pprof.Trace)
+		r.Handle("/allocs", pprof.Handler("allocs"))
+		r.Handle("/block", pprof.Handler("block"))
+		r.Handle("/goroutine", pprof.Handler("goroutine"))
+		r.Handle("/heap", pprof.Handler("heap"))
+		r.Handle("/mutex", pprof.Handler("mutex"))
+		r.Handle("/threadcreate", pprof.Handler("threadcreate"))
 	})
 	return r
 }

@@ -19,7 +19,10 @@ func FanIn(ctx context.Context, db *sql.DB, DeleteURLs <-chan models.ChDelete, t
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			operations.UpdateURLData(ctx, DeleteURLs, results, tx)
+			for deleteURL := range DeleteURLs {
+				err := operations.UpdateURLData(ctx, deleteURL, tx)
+				results <- err
+			}
 		}()
 	}
 	go func() {
@@ -32,12 +35,11 @@ func FanIn(ctx context.Context, db *sql.DB, DeleteURLs <-chan models.ChDelete, t
 func Generate(urlsToDelete ...models.ChDelete) chan models.ChDelete {
 	outCh := make(chan models.ChDelete)
 	go func() {
-		defer close(outCh)
-		for _, n := range urlsToDelete {
-			outCh <- n
+		for _, url := range urlsToDelete {
+			outCh <- url
 		}
+		close(outCh)
 	}()
-
 	return outCh
 }
 
@@ -46,26 +48,19 @@ func DeleteURLData(ctx context.Context, db *sql.DB, UrlsToDelete ...models.ChDel
 	if err != nil {
 		logger.Sugar.Fatalf("Failed to start transaction: %v", err)
 	}
-	userChan := Generate(UrlsToDelete...)
-	results := FanIn(ctx, db, userChan, tx)
+	deleteURLs := Generate(UrlsToDelete...)
+	results := FanIn(ctx, db, deleteURLs, tx)
 
-	hasErrors := false
 	for err := range results {
 		if err != nil {
-			hasErrors = true
-			logger.Sugar.Infof("Error occurred: %v", err)
+			logger.Sugar.Error("Failed to update URL:", err)
+			tx.Rollback()
+			return
 		}
 	}
 
-	if hasErrors {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			logger.Sugar.Infof("tx rollback error: %v", rollbackErr)
-		}
-		logger.Sugar.Infof("Transaction rolled back due to errors")
-	} else {
-		if commitErr := tx.Commit(); commitErr != nil {
-			logger.Sugar.Infof("tx commit error: %v", commitErr)
-		}
-		logger.Sugar.Infoln("Transaction committed successfully")
+	err = tx.Commit()
+	if err != nil {
+		logger.Sugar.Error("Failed to commit transaction:", err)
 	}
 }

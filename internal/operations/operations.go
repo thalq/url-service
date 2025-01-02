@@ -82,10 +82,12 @@ func ExecInsertBatchURLs(ctx context.Context, db *sql.DB, URLData []*models.URLD
 	return nil
 }
 
-func UpdateURLData(ctx context.Context, DeleteURLs <-chan models.ChDelete, results chan<- error, tx *sql.Tx) {
-	for DeleteURL := range DeleteURLs {
-		_, err := tx.ExecContext(ctx, "UPDATE urls SET is_deleted = true WHERE short_url = $1 AND user_id = $2", DeleteURL.ShortURL, DeleteURL.UserID)
-		results <- err
-		logger.Sugar.Infof("Updated URL: %s", DeleteURL.ShortURL)
+func UpdateURLData(ctx context.Context, DeleteURL models.ChDelete, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, "UPDATE urls SET is_deleted = true WHERE short_url = $1 AND user_id = $2", DeleteURL.ShortURL, DeleteURL.UserID)
+	if err != nil {
+		logger.Sugar.Errorf("Failed to update URL: %v", err)
+		return err
 	}
+	logger.Sugar.Infof("Updated URL: %s", DeleteURL.ShortURL)
+	return nil
 }
