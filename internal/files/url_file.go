@@ -5,11 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/thalq/url-service/config"
 	logger "github.com/thalq/url-service/internal/middleware"
 	"github.com/thalq/url-service/internal/models"
 )
+
+var urlDataPool = sync.Pool{
+	New: func() interface{} {
+		return new(models.URLData)
+	},
+}
 
 type Producer struct {
 	file   *os.File
@@ -65,7 +72,9 @@ func NewConsumer(filename string) (*Consumer, error) {
 
 func (c *Consumer) GetURL(shortURL string) (string, error) {
 	for c.scanner.Scan() {
-		var data models.URLData
+		data := urlDataPool.Get().(*models.URLData)
+		defer urlDataPool.Put(data)
+
 		if err := json.Unmarshal(c.scanner.Bytes(), &data); err != nil {
 			return "", err
 		}
@@ -89,13 +98,15 @@ func (c *Consumer) Close() error {
 func (c *Consumer) GetURLsByUser(userID string) ([]*models.URLData, error) {
 	var URLData []*models.URLData
 	for c.scanner.Scan() {
-		var data models.URLData
+		data := urlDataPool.Get().(*models.URLData)
+		defer urlDataPool.Put(data)
+
 		if err := json.Unmarshal(c.scanner.Bytes(), &data); err != nil {
 			return nil, err
 		}
 
 		if data.UserID == userID {
-			URLData = append(URLData, &data)
+			URLData = append(URLData, data)
 		}
 	}
 
@@ -112,6 +123,7 @@ func InsertDataIntoFile(cfg config.Config, URLData *models.URLData) error {
 		logger.Sugar.Error(err)
 	}
 	defer Producer.Close()
+
 	toFileSaveData := &models.URLData{
 		CorrelationID: URLData.CorrelationID,
 		OriginalURL:   URLData.OriginalURL,
@@ -131,6 +143,7 @@ func InsertBatchIntoFile(cfg config.Config, URLData []*models.URLData) error {
 		logger.Sugar.Error(err)
 	}
 	defer Producer.Close()
+
 	for _, data := range URLData {
 		toFileSaveData := &models.URLData{
 			CorrelationID: data.CorrelationID,
